@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var mainTimer: Timer?
     private var configWC: ConfigWindowController?
+    private var dashboardWC: DashboardWindowController?
 
     // MARK: - Launch
 
@@ -13,12 +14,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         BlockerService.shared.loadState()
         setupStatusItem()
         startMainTimer()
+        showDashboard()
+    }
+
+    // Re-open dashboard when user clicks the Dock icon
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        showDashboard()
+        return true
+    }
+
+    // MARK: - Dashboard
+
+    private func showDashboard() {
+        if dashboardWC == nil {
+            dashboardWC = DashboardWindowController(
+                onStartBlocking: { [weak self] in self?.startBlocking() },
+                onConfigure:     { [weak self] in self?.openConfig() }
+            )
+        }
+        dashboardWC?.showWindow(nil)
     }
 
     // MARK: - Status bar
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        statusItem.button?.image = makeMenuBarIcon()
+        statusItem.button?.imagePosition = .imageLeft
+
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -27,11 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func refreshButton() {
         let svc = BlockerService.shared
-        if svc.isBlocking {
-            statusItem.button?.title = "🛡 \(svc.remainingTimeString)"
-        } else {
-            statusItem.button?.title = "🛡"
-        }
+        statusItem.button?.title = svc.isBlocking ? "  \(svc.remainingTimeString)" : ""
     }
 
     // MARK: - Main tick timer
@@ -57,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             add(disabled: "✅  Ready", to: menu)
             menu.addItem(.separator())
+            menu.addItem(item("Dashboard",       action: #selector(openDashboard), key: "d"))
             menu.addItem(item("Configure…",      action: #selector(openConfig),    key: ","))
             menu.addItem(item("Start Blocking…", action: #selector(startBlocking), key: "s"))
         }
@@ -66,6 +87,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: - Actions
+
+    @objc private func openDashboard() { showDashboard() }
 
     @objc private func openConfig() {
         if configWC == nil { configWC = ConfigWindowController() }
@@ -103,8 +126,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Duration picker
 
     private func showDurationPicker() {
-        let labels   = ["1 minute", "5 minutes", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours", "3 hours", "4 hours", "8 hours"]
-        let minutes  = [1, 5, 15, 30, 45, 60, 120, 180, 240, 480]
+        let labels  = ["1 minute", "5 minutes", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours", "3 hours", "4 hours", "8 hours"]
+        let minutes = [1, 5, 15, 30, 45, 60, 120, 180, 240, 480]
 
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 230, height: 26))
         popup.addItems(withTitles: labels)
@@ -112,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let picker = NSAlert()
         picker.messageText = "Choose Block Duration"
-        picker.informativeText = "You cannot stop the session early. Apps will be killed on launch; websites will be blocked system-wide."
+        picker.informativeText = "You cannot stop the session early. Apps will be killed on launch."
         picker.accessoryView = popup
         picker.addButton(withTitle: "Next")
         picker.addButton(withTitle: "Cancel")
@@ -139,12 +162,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !svc.config.blockedApps.isEmpty {
             parts.append("Apps: \(svc.config.blockedApps.joined(separator: ", "))")
         }
-        if !svc.config.blockedWebsites.isEmpty {
-            let shown = svc.config.blockedWebsites.prefix(5).joined(separator: ", ")
-            let extra = svc.config.blockedWebsites.count > 5 ? " (+\(svc.config.blockedWebsites.count - 5) more)" : ""
-            parts.append("Sites: \(shown)\(extra)")
+        return (parts.isEmpty ? "No apps selected yet." : parts.joined(separator: "\n\n"))
+            + "\n\nThis cannot be undone until the timer expires."
+    }
+
+    // MARK: - Icon
+
+    private func makeMenuBarIcon() -> NSImage {
+        let size: CGFloat = 18
+        let img = NSImage(size: NSSize(width: size, height: size))
+        img.lockFocus()
+        defer { img.unlockFocus() }
+
+        let rect = NSRect(origin: .zero, size: NSSize(width: size, height: size))
+        NSBezierPath(roundedRect: rect, xRadius: size * 0.22, yRadius: size * 0.22).setClip()
+        NSGradient(colors: [
+            NSColor(calibratedRed: 0.10, green: 0.22, blue: 0.82, alpha: 1),
+            NSColor(calibratedRed: 0.04, green: 0.10, blue: 0.48, alpha: 1),
+        ])!.draw(in: rect, angle: 255)
+
+        let cfg = NSImage.SymbolConfiguration(pointSize: size * 0.60, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
+        if let sym = NSImage(systemSymbolName: "lock.shield.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(cfg) {
+            sym.draw(
+                at: NSPoint(x: (size - sym.size.width) / 2, y: (size - sym.size.height) / 2),
+                from: .zero, operation: .sourceOver, fraction: 1
+            )
         }
-        return parts.joined(separator: "\n\n") + "\n\nThis cannot be undone until the timer expires."
+        return img
     }
 
     // MARK: - Helpers
