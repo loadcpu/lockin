@@ -17,16 +17,14 @@ final class BlockerService: ObservableObject {
     // Called once at launch
     func loadState() {
         config = Config.load()
+        HostsManager.cleanupOnLaunch()
         if let s = BlockSession.load(), s.isActive {
             session = s
             isBlocking = true
             remainingSeconds = s.remainingSeconds
-            HostsManager.shared.applyBlocks(websites: s.blockedWebsites)
             startMonitoring()
         } else {
-            // Session expired while app was closed – clean up hosts
             BlockSession.clear()
-            HostsManager.shared.removeBlocks()
         }
     }
 
@@ -41,7 +39,12 @@ final class BlockerService: ObservableObject {
         killBlockedApps(s)
     }
 
+    // Applies web blocks first (shows password dialog), then starts the session
+    // so the endTime is measured from after the dialog, not before.
     func startSession(minutes: Int) {
+        if !config.blockedWebsites.isEmpty {
+            guard HostsManager.applyBlocks(domains: config.blockedWebsites) else { return }
+        }
         let s = BlockSession(
             minutes: minutes,
             blockedApps: config.blockedApps,
@@ -51,8 +54,6 @@ final class BlockerService: ObservableObject {
         session = s
         isBlocking = true
         remainingSeconds = s.remainingSeconds
-
-        HostsManager.shared.applyBlocks(websites: s.blockedWebsites)
         startMonitoring()
     }
 
@@ -71,8 +72,8 @@ final class BlockerService: ObservableObject {
         remainingSeconds = 0
         session = nil
         BlockSession.clear()
-        HostsManager.shared.removeBlocks()
         stopMonitoring()
+        HostsManager.removeBlocks()
     }
 
     private func startMonitoring() {

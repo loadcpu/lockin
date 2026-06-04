@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         BlockerService.shared.loadState()
         setupStatusItem()
         startMainTimer()
@@ -90,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if BlockerService.shared.isBlocking {
             let a = NSAlert()
             a.messageText = "Session Active"
-            a.informativeText = "A blocking session is running. Quitting will stop the DNS sinkhole and app-kill monitor, but the session timer will resume on next launch."
+            a.informativeText = "A blocking session is running. Quitting will pause the app-kill monitor, but the session timer will resume on next launch."
             a.alertStyle = .warning
             a.addButton(withTitle: "Quit Anyway")
             a.addButton(withTitle: "Cancel")
