@@ -8,6 +8,10 @@ let package = Package(
         .executableTarget(
             name: "ScreenBlocker",
             path: "Sources/ScreenBlocker"
+        ),
+        .executableTarget(
+            name: "ScreenBlockerDNS",
+            path: "Sources/ScreenBlockerDNS"
         )
     ]
 )

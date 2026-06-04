@@ -90,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if BlockerService.shared.isBlocking {
             let a = NSAlert()
             a.messageText = "Session Active"
-            a.informativeText = "A blocking session is running. Website blocks in /etc/hosts will persist until the timer expires. Quitting will stop the app-kill monitor."
+            a.informativeText = "A blocking session is running. Quitting will stop the DNS sinkhole and app-kill monitor, but the session timer will resume on next launch."
             a.alertStyle = .warning
             a.addButton(withTitle: "Quit Anyway")
             a.addButton(withTitle: "Cancel")
@@ -103,12 +103,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Duration picker
 
     private func showDurationPicker() {
-        let labels   = ["15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours", "3 hours", "4 hours", "8 hours"]
-        let minutes  = [15, 30, 45, 60, 120, 180, 240, 480]
+        let labels   = ["1 minute", "5 minutes", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours", "3 hours", "4 hours", "8 hours"]
+        let minutes  = [1, 5, 15, 30, 45, 60, 120, 180, 240, 480]
 
         let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 230, height: 26))
         popup.addItems(withTitles: labels)
-        popup.selectItem(at: 3)
+        popup.selectItem(at: 5)
 
         let picker = NSAlert()
         picker.messageText = "Choose Block Duration"

@@ -21,6 +21,7 @@ final class BlockerService: ObservableObject {
             session = s
             isBlocking = true
             remainingSeconds = s.remainingSeconds
+            HostsManager.shared.applyBlocks(websites: s.blockedWebsites)
             startMonitoring()
         } else {
             // Session expired while app was closed – clean up hosts

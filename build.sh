@@ -15,7 +15,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
-cp .build/release/ScreenBlocker "$APP/Contents/MacOS/ScreenBlocker"
+cp .build/release/ScreenBlocker    "$APP/Contents/MacOS/ScreenBlocker"
+cp .build/release/ScreenBlockerDNS "$APP/Contents/MacOS/ScreenBlockerDNS"
 cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" << 'PLIST'
