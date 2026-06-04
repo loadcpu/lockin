@@ -1,0 +1,8 @@
+.build/
+*.xcworkspace
+xcuserdata/
+DerivedData/
+.swiftpm/
+AppIcon.iconset/
+*.o
+*.d

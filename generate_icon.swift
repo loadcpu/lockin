@@ -1,0 +1,69 @@
+#!/usr/bin/env swift
+// Run: swift generate_icon.swift
+import AppKit
+
+_ = NSApplication.shared // init AppKit rendering
+
+func makeIcon(px: Int) -> NSImage {
+    let s = CGFloat(px)
+    let img = NSImage(size: NSSize(width: s, height: s))
+    img.lockFocus()
+    defer { img.unlockFocus() }
+
+    let rect = NSRect(origin: .zero, size: NSSize(width: s, height: s))
+
+    // Rounded-rect background clip
+    NSBezierPath(roundedRect: rect, xRadius: s * 0.22, yRadius: s * 0.22).setClip()
+
+    // Deep-blue gradient
+    NSGradient(colors: [
+        NSColor(calibratedRed: 0.10, green: 0.22, blue: 0.82, alpha: 1),
+        NSColor(calibratedRed: 0.04, green: 0.10, blue: 0.48, alpha: 1),
+    ])!.draw(in: rect, angle: 255)
+
+    // White lock.shield.fill SF Symbol
+    let cfg = NSImage.SymbolConfiguration(pointSize: s * 0.60, weight: .medium)
+        .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
+    if let sym = NSImage(systemSymbolName: "lock.shield.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(cfg) {
+        sym.draw(
+            at: NSPoint(x: (s - sym.size.width) / 2, y: (s - sym.size.height) / 2),
+            from: .zero, operation: .sourceOver, fraction: 1
+        )
+    }
+
+    return img
+}
+
+func toPNG(_ image: NSImage) -> Data? {
+    guard let tiff = image.tiffRepresentation,
+          let rep = NSBitmapImageRep(data: tiff) else { return nil }
+    return rep.representation(using: .png, properties: [:])
+}
+
+let dir = "AppIcon.iconset"
+try? FileManager.default.removeItem(atPath: dir)
+try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+
+let specs: [(String, Int)] = [
+    ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
+    ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
+    ("icon_128x128.png", 128), ("icon_128x128@2x.png", 256),
+    ("icon_256x256.png", 256), ("icon_256x256@2x.png", 512),
+    ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024),
+]
+
+for (name, size) in specs {
+    if let png = toPNG(makeIcon(px: size)) {
+        try? png.write(to: URL(fileURLWithPath: "\(dir)/\(name)"))
+        print("  \(name)")
+    }
+}
+
+let task = Process()
+task.launchPath = "/usr/bin/iconutil"
+task.arguments = ["-c", "icns", dir, "-o", "AppIcon.icns"]
+task.launch()
+task.waitUntilExit()
+guard task.terminationStatus == 0 else { print("iconutil failed"); exit(1) }
+print("AppIcon.icns ready")
