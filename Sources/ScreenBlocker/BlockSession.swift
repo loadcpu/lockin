@@ -27,10 +27,7 @@ struct BlockSession: Codable {
     }
 
     private static var fileURL: URL {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".screenblocker")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("session.json")
+        FileManager.screenblockerDir.appendingPathComponent("session.json")
     }
 
     static func load() -> BlockSession? {

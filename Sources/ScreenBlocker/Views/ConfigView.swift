@@ -78,7 +78,9 @@ struct ConfigView: View {
 
             List(apps) { app in
                 HStack(spacing: 10) {
-                    Image(nsImage: resized(app.icon, to: 24))
+                    Image(nsImage: app.icon)
+                        .resizable()
+                        .frame(width: 24, height: 24)
                     Text(app.name)
                     Spacer()
                     Toggle("", isOn: blockedAppBinding(app.name))
@@ -115,8 +117,6 @@ struct ConfigView: View {
     }
 
     // MARK: - Websites Tab
-
-    @State private var primedCount = BlockerService.shared.primedBrowserCount
 
     private var websitesTab: some View {
         VStack(spacing: 0) {
@@ -167,11 +167,11 @@ struct ConfigView: View {
                     Text("Instant tab blocking")
                         .font(.caption)
                         .fontWeight(.medium)
-                    Text(primedCount == 0
+                    Text(service.primedBrowserIDs.isEmpty
                         ? "Not set up — open browsers, then tap Setup"
-                        : "\(primedCount) browser\(primedCount == 1 ? "" : "s") authorised")
+                        : "\(service.primedBrowserIDs.count) browser\(service.primedBrowserIDs.count == 1 ? "" : "s") authorised")
                         .font(.caption)
-                        .foregroundColor(primedCount == 0 ? .orange : .secondary)
+                        .foregroundColor(service.primedBrowserIDs.isEmpty ? .orange : .secondary)
                 }
                 Spacer()
                 Button("Setup…") {
@@ -191,9 +191,7 @@ struct ConfigView: View {
         alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        BlockerService.shared.primeBrowserPermissions {
-            primedCount = BlockerService.shared.primedBrowserCount
-        }
+        BlockerService.shared.primeBrowserPermissions()
     }
 
     private func addWebsite() {
@@ -294,13 +292,4 @@ struct ConfigView: View {
         )
     }
 
-    // MARK: - Helpers
-
-    private func resized(_ image: NSImage, to size: CGFloat) -> NSImage {
-        let result = NSImage(size: NSSize(width: size, height: size))
-        result.lockFocus()
-        image.draw(in: NSRect(x: 0, y: 0, width: size, height: size))
-        result.unlockFocus()
-        return result
-    }
 }

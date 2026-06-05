@@ -98,7 +98,7 @@ final class ActivityTracker {
             eventType: CGEventType(rawValue: UInt32.max)!
         )
         guard idleSeconds <= idleThreshold else {
-            flushTrimmedToIdle(idleSeconds: idleSeconds)
+            flushCurrent(endTime: Date().addingTimeInterval(-idleSeconds))
             return
         }
 
@@ -117,27 +117,11 @@ final class ActivityTracker {
 
     // MARK: - Flush helpers
 
-    // Writes only the active portion of the current window, ending when input stopped.
-    private func flushTrimmedToIdle(idleSeconds: TimeInterval) {
+    private func flushCurrent(endTime: Date = .init()) {
         guard let name = currentAppName,
               let bundleID = currentBundleID,
               let start = currentStartTime else { return }
-        let lastActive = Date().addingTimeInterval(-idleSeconds)
-        let duration = lastActive.timeIntervalSince(start)
-        let domain = currentDomain
-        currentAppName = nil; currentBundleID = nil; currentDomain = nil; currentStartTime = nil
-        guard duration >= 2 else { return }
-        ActivityStore.shared.append(ActivityEvent(
-            timestamp: start, duration: duration,
-            appName: name, bundleID: bundleID, domain: domain
-        ))
-    }
-
-    private func flushCurrent() {
-        guard let name = currentAppName,
-              let bundleID = currentBundleID,
-              let start = currentStartTime else { return }
-        let duration = Date().timeIntervalSince(start)
+        let duration = endTime.timeIntervalSince(start)
         let domain = currentDomain
         currentAppName = nil; currentBundleID = nil; currentDomain = nil; currentStartTime = nil
         guard duration >= 2 else { return }

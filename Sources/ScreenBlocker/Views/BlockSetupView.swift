@@ -242,7 +242,7 @@ struct BlockSetupView: View {
         }
 
         // Suggestions from today's usage — exclude this app
-        let topUsage = store.topApps(for: Date(), limit: 20)
+        let topUsage = store.topApps(forDays: 1, limit: 20)
         for usage in topUsage where usage.duration >= 60
             && usage.bundleID != selfBundleID
             && usage.appName.caseInsensitiveCompare(selfName) != .orderedSame {

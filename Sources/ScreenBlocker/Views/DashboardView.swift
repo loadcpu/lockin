@@ -121,15 +121,11 @@ struct DashboardView: View {
             }
 
             if store.todayTotal > 0 {
-                miniCategoryBar
+                CategoryBar(segments: categorySegments)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-    }
-
-    private var miniCategoryBar: some View {
-        CategoryBar(segments: categorySegments)
     }
 
     // MARK: - Bottom bar

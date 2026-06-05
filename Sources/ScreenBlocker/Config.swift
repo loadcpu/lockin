@@ -43,10 +43,7 @@ struct Config: Codable {
     }
 
     private static var fileURL: URL {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".screenblocker")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("config.json")
+        FileManager.screenblockerDir.appendingPathComponent("config.json")
     }
 
     static func load() -> Config {
@@ -60,5 +57,14 @@ struct Config: Codable {
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         try? data.write(to: Config.fileURL)
+    }
+}
+
+extension FileManager {
+    static var screenblockerDir: URL {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".screenblocker")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
     }
 }

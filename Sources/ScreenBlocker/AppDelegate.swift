@@ -1,13 +1,21 @@
 import AppKit
 import SwiftUI
 
+private final class HostingWindowController: NSWindowController {
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        window?.makeKeyAndOrderFront(sender)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var mainTimer: Timer?
-    private var configWC: ConfigWindowController?
-    private var dashboardWC: DashboardWindowController?
-    private var statsWC: StatsWindowController?
-    private var blockSetupWC: BlockSetupWindowController?
+    private var configWC: HostingWindowController?
+    private var dashboardWC: HostingWindowController?
+    private var statsWC: HostingWindowController?
+    private var blockSetupWC: HostingWindowController?
 
     // MARK: - Launch
 
@@ -74,11 +82,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func showDashboard() {
         if dashboardWC == nil {
-            dashboardWC = DashboardWindowController(
-                onStartBlocking: { [weak self] in self?.startBlocking() },
-                onConfigure:     { [weak self] in self?.openConfig() },
-                onViewStats:     { [weak self] in self?.openStats() }
-            )
+            dashboardWC = makeHostingWindow(
+                rootView: DashboardView(
+                    onStartBlocking: { [weak self] in self?.startBlocking() },
+                    onConfigure:     { [weak self] in self?.openConfig() },
+                    onViewStats:     { [weak self] in self?.openStats() }
+                ),
+                title: "Screen Blocker",
+                size: NSSize(width: 280, height: 300),
+                style: [.titled, .closable, .fullSizeContentView]
+            ) { win, hosting in
+                win.setContentSize(hosting.fittingSize)
+                win.titlebarAppearsTransparent = true
+                win.isMovableByWindowBackground = true
+            }
         }
         dashboardWC?.showWindow(nil)
     }
@@ -140,22 +157,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openDashboard() { showDashboard() }
 
     @objc private func openConfig() {
-        if configWC == nil { configWC = ConfigWindowController() }
+        if configWC == nil {
+            configWC = makeHostingWindow(
+                rootView: ConfigView(),
+                title: "Screen Blocker – Configure",
+                size: NSSize(width: 520, height: 520),
+                style: [.titled, .closable, .miniaturizable]
+            ) { win, hosting in
+                hosting.autoresizingMask = [.width, .height]
+                win.setContentSize(hosting.fittingSize)
+            }
+        }
         configWC?.showWindow(nil)
     }
 
     @objc private func openStats() {
-        if statsWC == nil { statsWC = StatsWindowController() }
+        if statsWC == nil {
+            statsWC = makeHostingWindow(
+                rootView: StatsView(),
+                title: "Screen Blocker – Screen Time",
+                size: NSSize(width: 600, height: 560),
+                style: [.titled, .closable, .miniaturizable, .resizable]
+            ) { win, hosting in
+                hosting.autoresizingMask = [.width, .height]
+                win.minSize = NSSize(width: 560, height: 420)
+            }
+        }
         statsWC?.showWindow(nil)
+        NotificationCenter.default.post(name: .statsViewShouldReload, object: nil)
     }
 
     @objc private func startBlocking() {
         guard !BlockerService.shared.isBlocking else { return }
-        blockSetupWC = BlockSetupWindowController { [weak self] minutes, apps, websites in
-            BlockerService.shared.startSession(minutes: minutes, apps: apps, websites: websites)
-            self?.blockSetupWC?.close()
-            self?.blockSetupWC = nil
-            self?.refreshButton()
+        blockSetupWC = makeHostingWindow(
+            rootView: BlockSetupView(
+                onStart: { [weak self] minutes, apps, websites in
+                    BlockerService.shared.startSession(minutes: minutes, apps: apps, websites: websites)
+                    self?.blockSetupWC?.close()
+                    self?.blockSetupWC = nil
+                    self?.refreshButton()
+                },
+                onCancel: { NSApp.keyWindow?.performClose(nil) }
+            ),
+            title: "Start Focus Session",
+            size: NSSize(width: 480, height: 440),
+            style: [.titled, .closable]
+        ) { win, hosting in
+            hosting.autoresizingMask = [.width, .height]
+            win.setContentSize(hosting.fittingSize)
         }
         blockSetupWC?.showWindow(nil)
     }
@@ -212,5 +261,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         i.isEnabled = false
         menu.addItem(i)
+    }
+
+    private func makeHostingWindow<V: View>(
+        rootView: V,
+        title: String,
+        size: NSSize,
+        style: NSWindow.StyleMask,
+        configure: ((NSWindow, NSHostingView<V>) -> Void)? = nil
+    ) -> HostingWindowController {
+        let hosting = NSHostingView(rootView: rootView)
+        let win = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: style,
+            backing: .buffered,
+            defer: false
+        )
+        win.title = title
+        win.contentView = hosting
+        win.isReleasedWhenClosed = false
+        configure?(win, hosting)
+        win.center()
+        return HostingWindowController(window: win)
     }
 }

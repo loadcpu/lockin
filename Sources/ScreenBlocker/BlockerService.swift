@@ -9,8 +9,13 @@ final class BlockerService: ObservableObject {
     @Published var remainingSeconds = 0
     @Published var config: Config = .load()
 
+    @Published private(set) var primedBrowserIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "primedBrowserIDs") ?? []) {
+        didSet { UserDefaults.standard.set(Array(primedBrowserIDs), forKey: "primedBrowserIDs") }
+    }
+
     private var session: BlockSession?
     private var killTimer: Timer?
+    private var blockedAppNames: Set<String> = []
 
     private init() {}
 
@@ -22,8 +27,9 @@ final class BlockerService: ObservableObject {
                 session = s
                 isBlocking = true
                 remainingSeconds = s.remainingSeconds
+                blockedAppNames = Set(s.blockedApps.map { $0.lowercased() })
                 startMonitoring()
-                // applyBlocks now resolves IPs + pfctl (takes 2-4s) — run off main thread
+                // applyBlocks resolves IPs + pfctl (takes 2-4s) — run off main thread
                 let websites = s.blockedWebsites
                 if !websites.isEmpty {
                     DispatchQueue.global(qos: .utility).async {
@@ -47,7 +53,7 @@ final class BlockerService: ObservableObject {
             return
         }
         remainingSeconds = s.remainingSeconds
-        killBlockedApps(s)
+        killBlockedApps()
     }
 
     func startSession(minutes: Int, apps: [String]? = nil, websites: [String]? = nil) {
@@ -60,15 +66,16 @@ final class BlockerService: ObservableObject {
         session = s
         isBlocking = true
         remainingSeconds = s.remainingSeconds
+        blockedAppNames = Set(s.blockedApps.map { $0.lowercased() })
         startMonitoring()
 
-        let websites = config.blockedWebsites
-        guard !websites.isEmpty else { return }
+        let websitesToBlock = s.blockedWebsites
+        guard !websitesToBlock.isEmpty else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // applyBlocks resolves IPs + applies pfctl rules (~2-4s).
             // reloadBrowserTabs fires 1s after that, so pfctl is already in place
             // when tabs reload — killing existing connections on the spot.
-            if HostsManager.applyBlocks(domains: websites) {
+            if HostsManager.applyBlocks(domains: websitesToBlock) {
                 self?.reloadBrowserTabs()
             }
         }
@@ -88,6 +95,7 @@ final class BlockerService: ObservableObject {
         isBlocking = false
         remainingSeconds = 0
         session = nil
+        blockedAppNames = []
         BlockSession.clear()
         stopMonitoring()
         HostsManager.removeBlocks()
@@ -101,8 +109,7 @@ final class BlockerService: ObservableObject {
             object: nil
         )
         killTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            guard let self, let s = self.session else { return }
-            self.killBlockedApps(s)
+            self?.killBlockedApps()
         }
     }
 
@@ -113,14 +120,19 @@ final class BlockerService: ObservableObject {
     }
 
     @objc private func appLaunched(_ note: Notification) {
-        guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              let s = session else { return }
-        checkAndKill(app, session: s)
+        guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+        checkAndKill(app)
     }
 
-    private func killBlockedApps(_ s: BlockSession) {
-        for app in NSWorkspace.shared.runningApplications {
-            checkAndKill(app, session: s)
+    private func killBlockedApps() {
+        for app in NSWorkspace.shared.runningApplications { checkAndKill(app) }
+    }
+
+    private func checkAndKill(_ app: NSRunningApplication) {
+        guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
+        guard !blockedAppNames.isEmpty else { return }
+        if blockedAppNames.contains((app.localizedName ?? "").lowercased()) {
+            app.forceTerminate()
         }
     }
 
@@ -141,14 +153,6 @@ final class BlockerService: ObservableObject {
         Browser(name: "Firefox",        bundleID: "org.mozilla.firefox",           isSafari: false),
     ]
 
-    var primedBrowserIDs: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: "primedBrowserIDs") ?? []) }
-        set { UserDefaults.standard.set(Array(newValue), forKey: "primedBrowserIDs") }
-    }
-
-    @Published var primedBrowserCount: Int = UserDefaults.standard
-        .stringArray(forKey: "primedBrowserIDs").map(\.count) ?? 0
-
     // Triggers the one-time macOS Automation permission dialog for each running browser.
     // Safe to call anytime; intended to be called during onboarding or from Config UI.
     func primeBrowserPermissions(completion: @escaping () -> Void = {}) {
@@ -168,9 +172,8 @@ final class BlockerService: ObservableObject {
                 NSAppleScript(source: script)?.executeAndReturnError(&err)
                 if err == nil { primed.insert(b.bundleID) }
             }
-            self.primedBrowserIDs = primed
             DispatchQueue.main.async {
-                self.primedBrowserCount = primed.count
+                self.primedBrowserIDs = primed
                 completion()
             }
         }
@@ -186,20 +189,20 @@ final class BlockerService: ObservableObject {
 
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
             for b in self.knownBrowsers where primed.contains(b.bundleID) {
-                if b.isSafari { self.runSafariReload() }
-                else          { self.runChromiumReload(b.name) }
+                self.reloadTabs(in: b)
             }
         }
     }
 
-    private func runSafariReload() {
+    private func reloadTabs(in browser: Browser) {
+        let action = browser.isSafari ? "set URL of t to URL of t" : "reload t"
         let script = """
-        if application "Safari" is running then
-            tell application "Safari"
+        if application "\(browser.name)" is running then
+            tell application "\(browser.name)"
                 repeat with w in windows
                     repeat with t in tabs of w
                         try
-                            set URL of t to URL of t
+                            \(action)
                         end try
                     end repeat
                 end repeat
@@ -208,35 +211,6 @@ final class BlockerService: ObservableObject {
         """
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if let err { NSLog("ScreenBlocker: Safari reload error: %@", err) }
-    }
-
-    private func runChromiumReload(_ browser: String) {
-        let script = """
-        if application "\(browser)" is running then
-            tell application "\(browser)"
-                repeat with w in windows
-                    repeat with t in tabs of w
-                        try
-                            reload t
-                        end try
-                    end repeat
-                end repeat
-            end tell
-        end if
-        """
-        var err: NSDictionary?
-        NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if let err { NSLog("ScreenBlocker: %@ reload error: %@", browser, err) }
-    }
-
-    private func checkAndKill(_ app: NSRunningApplication, session s: BlockSession) {
-        guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
-        let blocked = Set(s.blockedApps.map { $0.lowercased() })
-        guard !blocked.isEmpty else { return }
-        let name = (app.localizedName ?? "").lowercased()
-        if blocked.contains(name) {
-            app.forceTerminate()
-        }
+        if let err { NSLog("ScreenBlocker: %@ reload error: %@", browser.name, err) }
     }
 }
