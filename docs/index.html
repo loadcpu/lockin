@@ -3,104 +3,127 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ScreenBlocker — Deep focus for your Mac.</title>
-  <meta name="description" content="A minimal macOS menu bar app that blocks distracting apps and websites so you can actually get things done." />
+  <title>ScreenBlocker — Block apps. Own your screen time.</title>
+  <meta name="description" content="A macOS menu bar app that blocks distracting apps and websites on a timer, with Screen Time statistics." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --border: rgba(255,255,255,0.08);
-      --muted: #555;
-      --subtle: #333;
-    }
 
     body {
       background: #000;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
       -webkit-font-smoothing: antialiased;
-    }
-
-    /* Background glows */
-    .bg {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      overflow: hidden;
-    }
-    .bg::before, .bg::after {
-      content: '';
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-    }
-    .bg::before {
-      width: 70vw; height: 70vw;
-      top: -20vw; left: -20vw;
-      background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
-      animation: breathe 7s ease-in-out infinite;
-    }
-    .bg::after {
-      width: 60vw; height: 60vw;
-      bottom: -15vw; right: -15vw;
-      background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
-      animation: breathe 7s ease-in-out infinite 3.5s;
-    }
-    @keyframes breathe {
-      0%, 100% { opacity: 0.6; }
-      50%       { opacity: 1;   }
-    }
-
-    /* ── Hero ── */
-    .hero {
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* ── Background ── */
+    .bg {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .bg::before {
+      content: '';
+      position: absolute;
+      width: 130%; height: 75vh;
+      top: -40vh; left: 50%; transform: translateX(-50%);
+      background: radial-gradient(ellipse at 50% 0%,
+        rgba(255,255,255,0.22) 0%,
+        rgba(255,255,255,0.09) 38%,
+        transparent 68%);
+      animation: breathe 9s ease-in-out infinite;
+    }
+    .bg::after {
+      content: '';
+      position: absolute;
+      width: 55%; height: 45vh;
+      top: -18vh; left: 50%; transform: translateX(-50%);
+      background: radial-gradient(ellipse at 50% 0%,
+        rgba(255,255,255,0.12) 0%,
+        transparent 65%);
+      animation: breathe 9s ease-in-out infinite 2.5s;
+    }
+    @keyframes breathe {
+      0%, 100% { opacity: 0.7; }
+      50%       { opacity: 1; }
+    }
+
+    /* Grain overlay */
+    .noise {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 9999;
+      opacity: 0.042;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 256px 256px;
+    }
+
+    /* ── Layout ── */
+    main {
+      flex: 1;
+      display: flex;
       align-items: center;
       justify-content: center;
-      text-align: center;
-      padding: 100px 24px 48px;
+      padding: 80px 40px 60px;
       position: relative;
       z-index: 1;
     }
 
-    h1 {
-      font-size: clamp(36px, 7vw, 68px);
-      font-weight: 700;
-      line-height: 1.08;
-      letter-spacing: -0.03em;
-      max-width: 640px;
-      margin-bottom: 22px;
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 72px;
+      align-items: center;
+      max-width: 860px;
+      width: 100%;
     }
 
+    /* ── Left: text ── */
+    h1 {
+      font-size: clamp(48px, 6.5vw, 72px);
+      font-weight: 700;
+      line-height: 1.06;
+      letter-spacing: -0.038em;
+      margin-bottom: 20px;
+    }
     h1 .w {
       display: inline;
-      color: rgba(255,255,255,0.12);
-      transition: color 0.4s ease;
-      text-shadow: none;
+      color: rgba(255,255,255,0.1);
+      transition: color 0.4s ease, text-shadow 0.4s ease;
     }
     h1 .w.lit {
       color: #fff;
-      text-shadow: 0 0 30px rgba(255,255,255,0.6), 0 0 80px rgba(255,255,255,0.25);
+      text-shadow: 0 0 28px rgba(255,255,255,0.4), 0 0 70px rgba(255,255,255,0.15);
     }
 
     .tagline {
-      font-size: clamp(14px, 2vw, 16px);
-      color: var(--muted);
-      max-width: 380px;
-      line-height: 1.65;
-      margin-bottom: 40px;
+      font-size: 17px;
+      color: #999;
+      line-height: 1.7;
+      max-width: 340px;
+      margin-bottom: 32px;
       opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
+      transform: translateY(6px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
     }
     .tagline.show { opacity: 1; transform: none; }
 
-    .download-btn {
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.5s ease 0.05s, transform 0.5s ease 0.05s;
+    }
+    .actions.show { opacity: 1; transform: none; }
+
+    .btn-primary {
       display: inline-flex;
       align-items: center;
-      gap: 9px;
-      padding: 12px 26px;
+      gap: 7px;
+      padding: 10px 20px;
       background: #fff;
       color: #000;
       border-radius: 980px;
@@ -109,166 +132,368 @@
       text-decoration: none;
       letter-spacing: -0.01em;
       transition: opacity 0.15s, transform 0.15s;
-      margin-bottom: 12px;
+    }
+    .btn-primary:hover  { opacity: 0.84; transform: translateY(-1px); }
+    .btn-primary:active { opacity: 0.72; transform: translateY(0); }
+    .btn-primary svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 980px;
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.45);
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .btn-ghost:hover {
+      border-color: rgba(255,255,255,0.2);
+      color: #fff;
+      background: rgba(255,255,255,0.04);
+    }
+    .btn-ghost svg { width: 14px; height: 14px; }
+
+    .dl-meta {
+      font-size: 12px;
+      color: #666;
+      opacity: 0;
+      transition: opacity 0.5s ease 0.1s;
+    }
+    .dl-meta.show { opacity: 1; }
+
+    /* ── Right: mockup ── */
+    .mockup {
+      width: 256px;
+      flex-shrink: 0;
+      background: #1e1e20;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 40px 80px rgba(0,0,0,0.7),
+        0 0 0 0.5px rgba(255,255,255,0.04),
+        inset 0 1px 0 rgba(255,255,255,0.07);
       opacity: 0;
       transform: translateY(10px);
       transition: opacity 0.6s ease 0.1s, transform 0.6s ease 0.1s;
     }
-    .download-btn.show { opacity: 1; transform: none; }
-    .download-btn:hover  { opacity: 0.85 !important; transform: translateY(-1px) !important; }
-    .download-btn:active { opacity: 0.75 !important; transform: translateY(0) !important; }
-    .download-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .mockup.show { opacity: 1; transform: none; }
 
-    .download-meta {
-      font-size: 12px;
-      color: var(--subtle);
-      opacity: 0;
-      transition: opacity 0.6s ease 0.2s;
-    }
-    .download-meta.show { opacity: 1; }
-
-    /* ── Features grid ── */
-    .features-wrap {
+    .mockup-titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       position: relative;
-      z-index: 1;
-      padding: 0 24px 80px;
-      opacity: 0;
-      transform: translateY(14px);
-      transition: opacity 0.6s ease 0.2s, transform 0.6s ease 0.2s;
+      padding: 10px 14px 8px;
+      background: #272729;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .features-wrap.show { opacity: 1; transform: none; }
-
-    .features {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      overflow: hidden;
-      max-width: 680px;
-      margin: 0 auto;
+    .traffic-lights {
+      display: flex;
+      gap: 6px;
+      position: absolute;
+      left: 12px;
     }
-
-    @media (max-width: 580px) {
-      .features { grid-template-columns: 1fr; }
-    }
-
-    .feature {
-      background: #000;
-      padding: 26px 22px;
-      text-align: left;
-    }
-
-    .feature-icon {
-      font-size: 20px;
-      margin-bottom: 10px;
-      display: block;
-      filter: grayscale(1) brightness(2);
-    }
-
-    .feature-title {
-      font-size: 13px;
+    .tl { width: 11px; height: 11px; border-radius: 50%; }
+    .tl-red    { background: #ff5f57; }
+    .tl-yellow { background: #ffbd2e; }
+    .tl-green  { background: #28c840; }
+    .mockup-wintitle {
+      font-size: 12px;
       font-weight: 600;
-      color: rgba(255,255,255,0.8);
-      margin-bottom: 5px;
+      color: rgba(255,255,255,0.7);
       letter-spacing: -0.01em;
     }
 
-    .feature-desc {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.6;
+    .mockup-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 14px 14px;
+    }
+    .mockup-shield {
+      width: 54px; height: 54px;
+      border-radius: 14px;
+      background: linear-gradient(155deg, #2060e8 0%, #1440c0 100%);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+      box-shadow: 0 8px 24px rgba(20,64,192,0.45);
+    }
+    .mockup-shield svg { width: 26px; height: 26px; fill: #fff; }
+    .mockup-appname {
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 12px;
+    }
+
+    .session-card {
+      width: 100%;
+      background: rgba(180,30,25,0.22);
+      border: 1px solid rgba(255,69,58,0.25);
+      border-radius: 10px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .session-tag {
+      font-size: 9px;
+      font-weight: 700;
+      color: #ff453a;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .session-timer {
+      font-size: 40px;
+      font-weight: 590;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.04em;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .session-sub {
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+    }
+
+    .mockup-today {
+      padding: 11px 14px 10px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .today-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .today-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .today-link {
+      font-size: 10px;
+      color: #0a84ff;
+    }
+    .today-stat {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 6px;
+    }
+    .today-stat span {
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.3);
+      margin-left: 3px;
+    }
+    .progress-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 18%;
+      background: #0a84ff;
+      border-radius: 2px;
+    }
+
+    .mockup-bar {
+      display: flex;
+      justify-content: space-between;
+      padding: 9px 14px 11px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .mockup-bar-btn {
+      font-size: 11px;
+      color: rgba(255,255,255,0.28);
+    }
+
+    /* ── Feature strip ── */
+    .strip {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 28px;
+      padding: 0 40px 52px;
+      opacity: 0;
+      transition: opacity 0.5s ease 0.15s;
+    }
+    .strip.show { opacity: 1; }
+    .strip-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+    }
+    .strip-item span { font-size: 16px; }
+    .strip-dot {
+      width: 3px; height: 3px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
     }
 
     /* ── Footer ── */
     footer {
       position: relative;
       z-index: 1;
-      padding: 26px 40px;
-      border-top: 1px solid var(--border);
+      padding: 20px 40px;
+      border-top: 1px solid rgba(255,255,255,0.06);
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 5px;
-      font-size: 13px;
-      color: var(--muted);
+      font-size: 12px;
+      color: #666;
     }
     footer a {
-      color: rgba(255,255,255,0.4);
+      color: rgba(255,255,255,0.5);
       text-decoration: none;
       transition: color 0.2s;
     }
     footer a:hover { color: #fff; }
+
+    /* ── Responsive ── */
+    @media (max-width: 680px) {
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        text-align: center;
+        padding: 72px 24px 48px;
+      }
+      .tagline { max-width: 100%; margin-left: auto; margin-right: auto; }
+      .actions { justify-content: center; }
+      .mockup  { margin: 0 auto; }
+      .strip   { gap: 18px; padding-bottom: 40px; }
+    }
   </style>
 </head>
 <body>
 
   <div class="bg"></div>
+  <div class="noise"></div>
 
-  <!-- Hero -->
-  <section class="hero">
-    <h1 id="hero-text">Deep focus, no distractions.</h1>
-    <p class="tagline">A lightweight menu bar app that locks you out of distracting apps and websites until your session is done.</p>
-    <a class="download-btn" id="dl-btn" href="https://github.com/loadcpu/screen-blocker/releases/latest/download/ScreenBlocker.zip" download>
-      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 1v9M8 10l-3-3M8 10l3-3M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Download for macOS
-    </a>
-    <p class="download-meta" id="dl-meta">macOS 13 Ventura or later · Apple Silicon &amp; Intel</p>
-  </section>
+  <main>
+    <div class="hero">
 
-  <!-- Features -->
-  <div class="features-wrap">
-    <div class="features">
-      <div class="feature">
-        <span class="feature-icon">⏱</span>
-        <div class="feature-title">Timed sessions</div>
-        <div class="feature-desc">Set a duration and commit. Sessions can't be cancelled once started.</div>
+      <!-- Text -->
+      <div>
+        <h1 id="hero-text">Block apps.<br>Own your screen time.</h1>
+        <p class="tagline" id="tagline">Set a timer, lock out your distractions, and see exactly where your hours go.</p>
+        <div class="actions" id="actions">
+          <a class="btn-primary" href="https://github.com/loadcpu/screen-blocker/releases/latest/download/ScreenBlocker.zip" download>
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 1v9M8 10l-3-3M8 10l3-3M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Download for macOS
+          </a>
+          <a class="btn-ghost" href="https://github.com/loadcpu/screen-blocker" target="_blank" rel="noopener">
+            <svg viewBox="0 0 15 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7.5 0C3.36 0 0 3.36 0 7.5c0 3.31 2.15 6.12 5.13 7.11.37.07.51-.16.51-.36v-1.28C3.53 13.37 3.1 11.9 3.1 11.9c-.34-.87-.84-1.1-.84-1.1-.69-.47.05-.46.05-.46.76.05 1.16.78 1.16.78.67 1.15 1.77.82 2.2.63.07-.49.26-.82.48-1.01-1.67-.19-3.43-.84-3.43-3.72 0-.82.29-1.49.77-2.02-.08-.19-.33-.95.07-1.99 0 0 .63-.2 2.07.77a7.2 7.2 0 013.76 0c1.44-.97 2.07-.77 2.07-.77.4 1.04.15 1.8.07 1.99.48.53.77 1.2.77 2.02 0 2.89-1.76 3.53-3.43 3.72.27.23.51.69.51 1.39v2.06c0 .2.14.43.51.36A7.5 7.5 0 0015 7.5C15 3.36 11.64 0 7.5 0z"/>
+            </svg>
+            GitHub
+          </a>
+        </div>
+        <p class="dl-meta" id="dl-meta">macOS 13 Ventura or later · Apple Silicon &amp; Intel</p>
       </div>
-      <div class="feature">
-        <span class="feature-icon">🚫</span>
-        <div class="feature-title">App blocking</div>
-        <div class="feature-desc">Pick apps to block and they'll be force-quit the moment you open them.</div>
+
+      <!-- Mockup -->
+      <div class="mockup" id="mockup">
+        <div class="mockup-titlebar">
+          <div class="traffic-lights">
+            <div class="tl tl-red"></div>
+            <div class="tl tl-yellow"></div>
+            <div class="tl tl-green"></div>
+          </div>
+          <span class="mockup-wintitle">Screen Blocker</span>
+        </div>
+        <div class="mockup-hero">
+          <div class="mockup-shield">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L4 5.5V11c0 4.55 3.4 8.74 8 9.93C16.6 19.74 20 15.55 20 11V5.5L12 2z"/>
+            </svg>
+          </div>
+          <div class="mockup-appname">Screen Blocker</div>
+          <div class="session-card">
+            <div class="session-tag">Session Active</div>
+            <div class="session-timer" id="mock-timer">14:52</div>
+            <div class="session-sub">remaining</div>
+          </div>
+        </div>
+        <div class="mockup-today">
+          <div class="today-header">
+            <span class="today-label">Today</span>
+            <span class="today-link">View Details →</span>
+          </div>
+          <div class="today-stat">2m <span>screen time</span></div>
+          <div class="progress-track"><div class="progress-fill"></div></div>
+        </div>
+        <div class="mockup-bar">
+          <span class="mockup-bar-btn">Configure</span>
+          <span class="mockup-bar-btn">Quit</span>
+        </div>
       </div>
-      <div class="feature">
-        <span class="feature-icon">🌐</span>
-        <div class="feature-title">Site blocking</div>
-        <div class="feature-desc">Blocks domains system-wide at the network level — works across every browser.</div>
-      </div>
+
     </div>
+  </main>
+
+  <!-- Feature strip -->
+  <div class="strip" id="strip">
+    <div class="strip-item"><span>⏱</span> Timed sessions</div>
+    <div class="strip-dot"></div>
+    <div class="strip-item"><span>🚫</span> App &amp; site blocking</div>
+    <div class="strip-dot"></div>
+    <div class="strip-item"><span>📊</span> Screen Time stats</div>
   </div>
 
   <footer>
-    Built by
-    <a href="https://github.com/loadcpu" target="_blank" rel="noopener">Bogdan</a>
+    Built by <a href="https://github.com/loadcpu" target="_blank" rel="noopener">Bogdan</a>
   </footer>
 
   <script>
-    // ── Hero text reveal on load ──
     const heroEl = document.getElementById('hero-text');
-    const raw = heroEl.innerText.split(/(\s+)/);
-    heroEl.innerHTML = raw.map(w => w.trim() ? `<span class="w">${w}</span>` : w).join('');
+    heroEl.innerHTML = heroEl.innerText.split(/(\s+)/).map(w =>
+      w.trim() ? `<span class="w">${w}</span>` : w
+    ).join('');
     const words = heroEl.querySelectorAll('.w');
 
     let i = 0;
-    function lightNext() {
+    (function lightNext() {
       if (i < words.length) {
         words[i++].classList.add('lit');
-        setTimeout(lightNext, 110);
+        setTimeout(lightNext, 130);
       } else {
-        // After text finishes, reveal tagline + button + meta
         setTimeout(() => {
-          document.querySelector('.tagline').classList.add('show');
-          document.getElementById('dl-btn').classList.add('show');
+          document.getElementById('tagline').classList.add('show');
+          document.getElementById('actions').classList.add('show');
           document.getElementById('dl-meta').classList.add('show');
-          document.querySelector('.features-wrap').classList.add('show');
-        }, 200);
+          document.getElementById('mockup').classList.add('show');
+          document.getElementById('strip').classList.add('show');
+        }, 180);
       }
-    }
-    setTimeout(lightNext, 300);
+    })();
 
+    let secs = 14 * 60 + 52;
+    setInterval(() => {
+      if (secs > 0) secs--;
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      document.getElementById('mock-timer').textContent =
+        m + ':' + String(s).padStart(2, '0');
+    }, 1000);
   </script>
 
 </body>
