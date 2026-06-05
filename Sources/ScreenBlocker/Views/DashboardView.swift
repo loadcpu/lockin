@@ -30,7 +30,7 @@ struct DashboardView: View {
         let total = store.todayTotal
         guard total > 0 else { categorySegments = []; return }
         let breakdown = ActivityStore.shared
-            .categoryBreakdown(for: Date()) { service.config.category(for: $0) }
+            .categoryBreakdown(forDays: 1) { service.config.category(for: $0) }
             .filter { $0.category != .system && $0.category != .other }
         let meaningfulTotal = breakdown.reduce(0) { $0 + $1.duration }
         guard meaningfulTotal > 0 else { categorySegments = []; return }

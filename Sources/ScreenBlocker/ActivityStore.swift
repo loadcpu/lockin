@@ -113,10 +113,6 @@ final class ActivityStore: ObservableObject {
         aggregate(events(forDays: days), limit: limit)
     }
 
-    func categoryBreakdown(for date: Date, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
-        buildCategoryBreakdown(events(for: date), lookup: categoryLookup)
-    }
-
     func categoryBreakdown(forDays days: Int, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
         buildCategoryBreakdown(events(forDays: days), lookup: categoryLookup)
     }
