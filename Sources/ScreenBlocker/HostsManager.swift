@@ -1,10 +1,52 @@
 import Foundation
 
 struct HostsManager {
+    private static let tempPath   = "/tmp/screenblocker_hosts"
+    private static let helperPath = "/usr/local/bin/screenblocker-hosts"
+    private static let beginMark  = "# ScreenBlocker BEGIN"
+    private static let endMark    = "# ScreenBlocker END"
+
     static func cleanupOnLaunch() {}
 
     @discardableResult
-    static func applyBlocks(domains: [String]) -> Bool { true }
+    static func applyBlocks(domains: [String]) -> Bool {
+        guard !domains.isEmpty else { return true }
 
-    static func removeBlocks() {}
+        var lines = [beginMark]
+        for domain in domains {
+            let bare = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
+            lines.append("127.0.0.1 \(bare)")
+            lines.append("127.0.0.1 www.\(bare)")
+            lines.append("::1 \(bare)")
+            lines.append("::1 www.\(bare)")
+        }
+        lines.append(endMark)
+        let content = lines.joined(separator: "\n") + "\n"
+
+        guard (try? content.write(toFile: tempPath, atomically: true, encoding: .utf8)) != nil else {
+            return false
+        }
+
+        return runHelper("apply", tempPath)
+    }
+
+    static func removeBlocks() {
+        _ = runHelper("remove", nil)
+    }
+
+    // MARK: - Private
+
+    @discardableResult
+    private static func runHelper(_ action: String, _ arg: String?) -> Bool {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        var args = ["-n", helperPath, action]
+        if let arg { args.append(arg) }
+        proc.arguments = args
+        proc.standardOutput = FileHandle.nullDevice
+        proc.standardError  = FileHandle.nullDevice
+        guard (try? proc.run()) != nil else { return false }
+        proc.waitUntilExit()
+        return proc.terminationStatus == 0
+    }
 }

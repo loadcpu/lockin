@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-APP="ScreenBlocker.app"
-BUNDLE_ID="com.local.screenblocker"
+STAGING=".build/ScreenBlocker.app"
 
 echo "Building…"
 swift build -c release 2>&1
@@ -11,15 +10,15 @@ echo "Generating icon…"
 swift generate_icon.swift 2>&1 | grep -v "^$"
 
 echo "Packaging…"
-rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
-mkdir -p "$APP/Contents/Resources"
+rm -rf "$STAGING"
+mkdir -p "$STAGING/Contents/MacOS"
+mkdir -p "$STAGING/Contents/Resources"
 
-cp .build/release/ScreenBlocker    "$APP/Contents/MacOS/ScreenBlocker"
-cp .build/release/ScreenBlockerDNS "$APP/Contents/MacOS/ScreenBlockerDNS"
-cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp .build/release/ScreenBlocker    "$STAGING/Contents/MacOS/ScreenBlocker"
+cp .build/release/ScreenBlockerDNS "$STAGING/Contents/MacOS/ScreenBlockerDNS"
+cp AppIcon.icns "$STAGING/Contents/Resources/AppIcon.icns"
 
-cat > "$APP/Contents/Info.plist" << 'PLIST'
+cat > "$STAGING/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -49,7 +48,5 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
 PLIST
 
 echo ""
-echo "✓ Built $APP"
-echo ""
-echo "Run:     open $APP"
-echo "Install: ./install.sh"
+echo "✓ Build ready at $STAGING"
+echo "  Run: ./install.sh"
