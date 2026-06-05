@@ -6,15 +6,24 @@ BOLD='\033[1m'; GREEN='\033[0;32m'; RED='\033[0;31m'; DIM='\033[2m'; RESET='\033
 
 # ── Dev mode: run from the source repo ──────────────────────────────────────
 if [ -f Package.swift ]; then
+    PLIST="$HOME/Library/LaunchAgents/com.local.screenblocker.plist"
+
     echo "${BOLD}Building and installing Screen Blocker...${RESET}"
     ./build.sh
+
+    # Unload the agent first so launchd doesn't race-restart the old binary
+    # while we're swapping the app bundle
+    launchctl unload "$PLIST" 2>/dev/null || true
     pkill -x "Screen Blocker" 2>/dev/null || true
-    sleep 1
+
     rm -rf "/Applications/$APP.app"
     cp -r ".build/$APP.app" /Applications/
+
+    # Reload — launchd starts the new binary cleanly
+    launchctl load -w "$PLIST" 2>/dev/null || true
+
     echo ""
     echo "${GREEN}  ✓ Screen Blocker installed from source${RESET}"
-    echo "  ${DIM}Open from Spotlight or /Applications — the app handles the rest on first launch${RESET}"
     echo ""
     exit 0
 fi
