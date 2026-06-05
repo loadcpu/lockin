@@ -3,19 +3,23 @@ import AppKit
 
 struct DashboardView: View {
     @ObservedObject private var service = BlockerService.shared
+    @ObservedObject private var store = ActivityStore.shared
     let onStartBlocking: () -> Void
     let onConfigure: () -> Void
+    let onViewStats: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             heroSection
             Spacer().frame(height: 20)
             statusSection
-            Spacer().frame(height: 20)
+            Spacer().frame(height: 16)
+            Divider().padding(.horizontal, 20)
+            quickStatsSection
             Divider().padding(.horizontal, 20)
             bottomBar
         }
-        .frame(width: 280)
+        .frame(width: 300)
     }
 
     // MARK: - Sections
@@ -74,6 +78,49 @@ struct DashboardView: View {
             .tint(Color(red: 0.10, green: 0.22, blue: 0.82))
         }
     }
+
+    // MARK: - Quick stats
+
+    private var quickStatsSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("TODAY")
+                    .font(.caption2.bold())
+                    .foregroundColor(.secondary)
+                    .tracking(0.6)
+                Spacer()
+                Button("View Details →") { onViewStats() }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundColor(.blue)
+            }
+
+            HStack(alignment: .bottom, spacing: 6) {
+                Text(store.todayTotal.formattedDuration)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Text("screen time")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 3)
+                Spacer()
+            }
+
+            if store.todayTotal > 0 {
+                miniCategoryBar
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    private var miniCategoryBar: some View {
+        let segments = ActivityStore.shared
+            .categoryBreakdown(for: Date()) { service.config.category(for: $0) }
+            .map { ($0.category, store.todayTotal > 0 ? $0.duration / store.todayTotal : 0.0) }
+        return CategoryBar(segments: segments)
+    }
+
+    // MARK: - Bottom bar
 
     private var bottomBar: some View {
         HStack {

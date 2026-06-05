@@ -2,8 +2,12 @@ import AppKit
 import SwiftUI
 
 final class DashboardWindowController: NSWindowController {
-    convenience init(onStartBlocking: @escaping () -> Void, onConfigure: @escaping () -> Void) {
-        let view = DashboardView(onStartBlocking: onStartBlocking, onConfigure: onConfigure)
+    convenience init(
+        onStartBlocking: @escaping () -> Void,
+        onConfigure: @escaping () -> Void,
+        onViewStats: @escaping () -> Void
+    ) {
+        let view = DashboardView(onStartBlocking: onStartBlocking, onConfigure: onConfigure, onViewStats: onViewStats)
         let hosting = NSHostingView(rootView: view)
 
         let win = NSWindow(

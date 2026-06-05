@@ -21,6 +21,13 @@ let defaultWebsites: [String] = [
 struct Config: Codable {
     var blockedApps: [String] = []
     var blockedWebsites: [String] = defaultWebsites
+    var appCategoryOverrides: [String: String] = [:]
+    var categoryLimits: [String: Int] = [:]  // AppCategory.rawValue → minutes (0 = off)
+
+    func category(for identifier: String) -> AppCategory {
+        if let raw = appCategoryOverrides[identifier], let cat = AppCategory(rawValue: raw) { return cat }
+        return defaultCategoryMappings[identifier] ?? .other
+    }
 
     private static var fileURL: URL {
         let dir = FileManager.default.homeDirectoryForCurrentUser

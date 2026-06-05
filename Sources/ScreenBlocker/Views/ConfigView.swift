@@ -19,6 +19,9 @@ struct ConfigView: View {
                 websitesTab
                     .tabItem { Label("Websites", systemImage: "globe") }
                     .tag(1)
+                limitsTab
+                    .tabItem { Label("Limits", systemImage: "bell.badge") }
+                    .tag(2)
             }
             .padding(.top, 4)
         }
@@ -217,6 +220,78 @@ struct ConfigView: View {
         service.saveConfig()
         newWebsite = ""
         websiteError = ""
+    }
+
+    // MARK: - Limits Tab
+
+    private let limitPresets = [(0, "Off"), (30, "30m"), (60, "1h"), (90, "90m"), (120, "2h"), (180, "3h")]
+    private let limitCategories: [AppCategory] = [.entertainment, .social, .work, .development, .communication, .creative]
+
+    private var limitsTab: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Daily screen-time alerts")
+                    .font(.subheadline.bold())
+                Text("Get a notification when you exceed a category limit today. Resets at midnight.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Divider()
+
+            List {
+                ForEach(limitCategories) { cat in
+                    HStack(spacing: 12) {
+                        Image(systemName: cat.icon)
+                            .frame(width: 20)
+                            .foregroundColor(cat.color)
+                        Text(cat.rawValue)
+                            .font(.subheadline)
+                        Spacer()
+                        Picker("", selection: limitBinding(cat)) {
+                            ForEach(limitPresets, id: \.0) { mins, label in
+                                Text(label).tag(mins)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 80)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .listStyle(.plain)
+
+            Divider()
+
+            HStack {
+                let active = limitCategories.filter {
+                    (service.config.categoryLimits[$0.rawValue] ?? 0) > 0
+                }.count
+                Text(active == 0 ? "No limits set" : "\(active) limit\(active == 1 ? "" : "s") active")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func limitBinding(_ category: AppCategory) -> Binding<Int> {
+        Binding(
+            get: { service.config.categoryLimits[category.rawValue] ?? 0 },
+            set: { mins in
+                if mins == 0 {
+                    service.config.categoryLimits.removeValue(forKey: category.rawValue)
+                } else {
+                    service.config.categoryLimits[category.rawValue] = mins
+                }
+                service.saveConfig()
+            }
+        )
     }
 
     // MARK: - Helpers

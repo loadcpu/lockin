@@ -50,12 +50,11 @@ final class BlockerService: ObservableObject {
         killBlockedApps(s)
     }
 
-    func startSession(minutes: Int) {
-        // Start timer and UI immediately — don't block main thread waiting for pfctl
+    func startSession(minutes: Int, apps: [String]? = nil, websites: [String]? = nil) {
         let s = BlockSession(
             minutes: minutes,
-            blockedApps: config.blockedApps,
-            blockedWebsites: config.blockedWebsites
+            blockedApps: apps ?? config.blockedApps,
+            blockedWebsites: websites ?? config.blockedWebsites
         )
         s.save()
         session = s
@@ -142,7 +141,7 @@ final class BlockerService: ObservableObject {
         Browser(name: "Firefox",        bundleID: "org.mozilla.firefox",           isSafari: false),
     ]
 
-    private var primedBrowserIDs: Set<String> {
+    var primedBrowserIDs: Set<String> {
         get { Set(UserDefaults.standard.stringArray(forKey: "primedBrowserIDs") ?? []) }
         set { UserDefaults.standard.set(Array(newValue), forKey: "primedBrowserIDs") }
     }

@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mainTimer: Timer?
     private var configWC: ConfigWindowController?
     private var dashboardWC: DashboardWindowController?
+    private var statsWC: StatsWindowController?
+    private var blockSetupWC: BlockSetupWindowController?
 
     // MARK: - Launch
 
@@ -13,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.regular)
         setupMainMenu()
         BlockerService.shared.loadState()
+        ActivityTracker.shared.start()
+        LimitsChecker.shared.start()
         setupStatusItem()
         startMainTimer()
         showDashboard()
@@ -50,6 +54,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         BlockerService.shared.primeBrowserPermissions()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        ActivityTracker.shared.stop()
+        LimitsChecker.shared.stop()
+    }
+
     // Re-open dashboard when user clicks the Dock icon
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         showDashboard()
@@ -62,7 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if dashboardWC == nil {
             dashboardWC = DashboardWindowController(
                 onStartBlocking: { [weak self] in self?.startBlocking() },
-                onConfigure:     { [weak self] in self?.openConfig() }
+                onConfigure:     { [weak self] in self?.openConfig() },
+                onViewStats:     { [weak self] in self?.openStats() }
             )
         }
         dashboardWC?.showWindow(nil)
@@ -111,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             add(disabled: "✅  Ready", to: menu)
             menu.addItem(.separator())
             menu.addItem(item("Dashboard",       action: #selector(openDashboard), key: "d"))
+            menu.addItem(item("Screen Time…",    action: #selector(openStats),     key: "t"))
             menu.addItem(item("Configure…",      action: #selector(openConfig),    key: ","))
             menu.addItem(item("Start Blocking…", action: #selector(startBlocking), key: "s"))
         }
@@ -128,18 +139,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configWC?.showWindow(nil)
     }
 
+    @objc private func openStats() {
+        if statsWC == nil { statsWC = StatsWindowController() }
+        statsWC?.showWindow(nil)
+    }
+
     @objc private func startBlocking() {
-        let svc = BlockerService.shared
-        if svc.config.blockedApps.isEmpty && svc.config.blockedWebsites.isEmpty {
-            let a = NSAlert()
-            a.messageText = "Nothing to Block"
-            a.informativeText = "Open Configure and select at least one app or website to block."
-            a.addButton(withTitle: "Open Configure")
-            a.addButton(withTitle: "Cancel")
-            if a.runModal() == .alertFirstButtonReturn { openConfig() }
-            return
+        guard !BlockerService.shared.isBlocking else { return }
+        blockSetupWC = BlockSetupWindowController { [weak self] minutes, apps, websites in
+            BlockerService.shared.startSession(minutes: minutes, apps: apps, websites: websites)
+            self?.blockSetupWC?.close()
+            self?.blockSetupWC = nil
+            self?.refreshButton()
         }
-        showDurationPicker()
+        blockSetupWC?.showWindow(nil)
     }
 
     @objc private func handleQuit() {
@@ -154,49 +167,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             NSApp.terminate(nil)
         }
-    }
-
-    // MARK: - Duration picker
-
-    private func showDurationPicker() {
-        let labels  = ["1 minute", "5 minutes", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours", "3 hours", "4 hours", "8 hours"]
-        let minutes = [1, 5, 15, 30, 45, 60, 120, 180, 240, 480]
-
-        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 230, height: 26))
-        popup.addItems(withTitles: labels)
-        popup.selectItem(at: 5)
-
-        let picker = NSAlert()
-        picker.messageText = "Choose Block Duration"
-        picker.informativeText = "You cannot stop the session early. Apps will be killed on launch."
-        picker.accessoryView = popup
-        picker.addButton(withTitle: "Next")
-        picker.addButton(withTitle: "Cancel")
-        guard picker.runModal() == .alertFirstButtonReturn else { return }
-
-        let chosen = minutes[popup.indexOfSelectedItem]
-        let label  = labels[popup.indexOfSelectedItem]
-
-        let confirm = NSAlert()
-        confirm.messageText = "Start \(label) Block?"
-        confirm.informativeText = buildSummary(minutes: chosen)
-        confirm.alertStyle = .warning
-        confirm.addButton(withTitle: "Start Blocking")
-        confirm.addButton(withTitle: "Cancel")
-        guard confirm.runModal() == .alertFirstButtonReturn else { return }
-
-        BlockerService.shared.startSession(minutes: chosen)
-        refreshButton()
-    }
-
-    private func buildSummary(minutes: Int) -> String {
-        let svc = BlockerService.shared
-        var parts: [String] = []
-        if !svc.config.blockedApps.isEmpty {
-            parts.append("Apps: \(svc.config.blockedApps.joined(separator: ", "))")
-        }
-        return (parts.isEmpty ? "No apps selected yet." : parts.joined(separator: "\n\n"))
-            + "\n\nThis cannot be undone until the timer expires."
     }
 
     // MARK: - Icon
