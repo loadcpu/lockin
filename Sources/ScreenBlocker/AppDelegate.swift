@@ -55,6 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         BlockerService.shared.primeBrowserPermissions()
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        BlockerService.shared.isBlocking ? .terminateCancel : .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         ActivityTracker.shared.stop()
         LimitsChecker.shared.stop()
@@ -157,17 +161,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func handleQuit() {
-        if BlockerService.shared.isBlocking {
+        guard !BlockerService.shared.isBlocking else {
             let a = NSAlert()
-            a.messageText = "Session Active"
-            a.informativeText = "A blocking session is running. Quitting will pause the app-kill monitor, but the session timer will resume on next launch."
-            a.alertStyle = .warning
-            a.addButton(withTitle: "Quit Anyway")
-            a.addButton(withTitle: "Cancel")
-            if a.runModal() == .alertFirstButtonReturn { NSApp.terminate(nil) }
-        } else {
-            NSApp.terminate(nil)
+            a.messageText = "Session Locked"
+            a.informativeText = "You cannot quit while a blocking session is active. Wait for the timer to expire."
+            a.alertStyle = .informational
+            a.addButton(withTitle: "OK")
+            a.runModal()
+            return
         }
+        NSApp.terminate(nil)
     }
 
     // MARK: - Icon

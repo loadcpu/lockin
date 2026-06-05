@@ -124,6 +124,8 @@ cat > "$PLIST" << EOF
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <key>KeepAlive</key>
+    <true/>
     <key>StandardOutPath</key>
     <string>$HOME/.screenblocker/app.log</string>
     <key>StandardErrorPath</key>
