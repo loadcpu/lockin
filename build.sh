@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-STAGING=".build/ScreenBlocker.app"
+STAGING=".build/Screen Blocker.app"
 
 echo "Building…"
 swift build -c release 2>&1
@@ -28,6 +28,8 @@ cat > "$STAGING/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.local.screenblocker</string>
     <key>CFBundleName</key>
+    <string>Screen Blocker</string>
+    <key>CFBundleDisplayName</key>
     <string>Screen Blocker</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>

@@ -2,8 +2,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STAGING="$SCRIPT_DIR/.build/ScreenBlocker.app"
-INSTALL_DIR="/Applications/ScreenBlocker.app"
+STAGING="$SCRIPT_DIR/.build/Screen Blocker.app"
+INSTALL_DIR="/Applications/Screen Blocker.app"
 AGENT_DIR="$HOME/Library/LaunchAgents"
 PLIST="$AGENT_DIR/com.local.screenblocker.plist"
 HELPER=/usr/local/bin/screenblocker-hosts
@@ -101,6 +101,7 @@ fi
 
 # Stop running instance before replacing the app
 pkill -x ScreenBlocker 2>/dev/null || true
+pkill -x "Screen Blocker" 2>/dev/null || true
 sleep 1
 
 # Copy app to /Applications
@@ -137,7 +138,7 @@ launchctl load -w "$PLIST"
 
 echo ""
 echo "✓ Screen Blocker installed"
-echo "  • App installed to /Applications/ScreenBlocker.app"
+echo "  • App installed to /Applications/Screen Blocker.app"
 echo "  • Starts automatically at login"
 echo "  • Look for the shield icon in your menu bar"
 echo ""
