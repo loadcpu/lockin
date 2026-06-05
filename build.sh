@@ -53,4 +53,4 @@ PLIST
 
 echo ""
 echo "✓ Build ready at $STAGING"
-echo "  Run: ./install.sh"
+echo "  Run: ./install-dev.sh"
