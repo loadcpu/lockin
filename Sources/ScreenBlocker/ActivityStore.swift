@@ -16,13 +16,29 @@ final class ActivityStore: ObservableObject {
 
     private init() {
         todayTotal = totalDuration(for: Date())
+        pruneOldFiles()
+    }
+
+    private func pruneOldFiles(keepDays: Int = 90) {
+        queue.async {
+            let cutoff = Calendar.current.date(byAdding: .day, value: -keepDays, to: Date()) ?? Date()
+            let fm = FileManager.default
+            guard let files = try? fm.contentsOfDirectory(
+                at: self.baseDir, includingPropertiesForKeys: nil
+            ) else { return }
+            for url in files where url.pathExtension == "jsonl" {
+                let name = url.deletingPathExtension().lastPathComponent
+                guard let date = self.dateFormatter.date(from: name),
+                      date < cutoff else { continue }
+                try? fm.removeItem(at: url)
+            }
+        }
     }
 
     // MARK: - Storage
 
     private var baseDir: URL {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".screenblocker/activity")
+        let dir = FileManager.screenblockerDir.appendingPathComponent("activity")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
@@ -33,6 +49,7 @@ final class ActivityStore: ObservableObject {
 
     func append(_ event: ActivityEvent) {
         let url = fileURL(for: event.timestamp)
+        let delta = event.duration
         queue.async { [weak self] in
             guard let self,
                   let data = try? JSONEncoder().encode(event),
@@ -45,8 +62,7 @@ final class ActivityStore: ObservableObject {
             } else {
                 try? entry.write(to: url, atomically: false, encoding: .utf8)
             }
-            let newTotal = self.totalDuration(for: Date())
-            DispatchQueue.main.async { self.todayTotal = newTotal }
+            DispatchQueue.main.async { self.todayTotal += delta }
         }
     }
 
@@ -97,16 +113,12 @@ final class ActivityStore: ObservableObject {
         let duration: TimeInterval
     }
 
-    func totalDuration(for date: Date) -> TimeInterval {
+    private func totalDuration(for date: Date) -> TimeInterval {
         events(for: date).reduce(0) { $0 + $1.duration }
     }
 
     func totalDuration(forDays days: Int) -> TimeInterval {
         events(forDays: days).reduce(0) { $0 + $1.duration }
-    }
-
-    func topApps(for date: Date, limit: Int = 10) -> [AppUsage] {
-        aggregate(events(for: date), limit: limit)
     }
 
     func topApps(forDays days: Int, limit: Int = 10) -> [AppUsage] {

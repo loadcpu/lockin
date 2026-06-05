@@ -9,6 +9,7 @@ final class BrowserWatcher {
     private var pollTimer: Timer?
     private(set) var currentDomain: String?
     private var lastDomain: String?
+    private var scriptCache: [String: NSAppleScript] = [:]
 
     static let bundleIDs: Set<String> = [
         "com.apple.Safari",
@@ -65,28 +66,41 @@ final class BrowserWatcher {
 
     // MARK: - AppleScript helpers
 
+    private func script(for key: String, source: () -> String) -> NSAppleScript? {
+        if let cached = scriptCache[key] { return cached }
+        guard let s = NSAppleScript(source: source()) else { return nil }
+        scriptCache[key] = s
+        return s
+    }
+
     private func querySafari() -> String? {
-        var err: NSDictionary?
-        let result = NSAppleScript(source: """
+        let s = script(for: "Safari") {
+            """
             tell application "Safari"
                 if (count of windows) > 0 then
                     return URL of current tab of front window
                 end if
             end tell
-            """)?.executeAndReturnError(&err)
+            """
+        }
+        var err: NSDictionary?
+        let result = s?.executeAndReturnError(&err)
         guard err == nil else { return nil }
         return result?.stringValue
     }
 
     private func queryChromium(_ appName: String) -> String? {
-        var err: NSDictionary?
-        let result = NSAppleScript(source: """
+        let s = script(for: appName) {
+            """
             tell application "\(appName)"
                 if (count of windows) > 0 then
                     return URL of active tab of front window
                 end if
             end tell
-            """)?.executeAndReturnError(&err)
+            """
+        }
+        var err: NSDictionary?
+        let result = s?.executeAndReturnError(&err)
         guard err == nil else { return nil }
         return result?.stringValue
     }
