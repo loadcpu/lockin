@@ -24,8 +24,7 @@ curl -fsSL "$DMG_URL" -o "$TMP/ScreenBlocker.dmg"
 echo "done"
 
 printf "  Mounting... "
-VOLUME=$(hdiutil attach "$TMP/ScreenBlocker.dmg" -nobrowse -quiet \
-  | grep '/Volumes/' | sed 's|.*\(/Volumes/[^\t]*\)|\1|' | sed 's/[[:space:]]*$//')
+VOLUME=$(hdiutil attach "$TMP/ScreenBlocker.dmg" -nobrowse -quiet | tail -1 | cut -f3-)
 echo "done"
 
 printf "  Installing to /Applications... "
