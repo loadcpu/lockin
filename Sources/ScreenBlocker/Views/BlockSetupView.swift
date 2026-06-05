@@ -170,24 +170,36 @@ struct BlockSetupView: View {
 
     // MARK: - Action bar
 
+    private var checkedApps:  [String] { items.filter { checked.contains($0.id) && $0.isApp  }.map(\.blockingName) }
+    private var checkedSites: [String] { items.filter { checked.contains($0.id) && !$0.isApp }.map(\.blockingName) }
+    private var checkedTotal: Int { checkedApps.count + checkedSites.count }
+
     private var actionBar: some View {
-        HStack {
-            Button("Cancel", action: onCancel)
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-            Spacer()
-            let checkedApps = items.filter { checked.contains($0.id) && $0.isApp }.map(\.blockingName)
-            let checkedSites = items.filter { checked.contains($0.id) && !$0.isApp }.map(\.blockingName)
-            let total = checkedApps.count + checkedSites.count
-            Button("Start \(selectedMinutesLabel) Session – Block \(total) item\(total == 1 ? "" : "s")") {
-                onStart(selectedMinutes, checkedApps, checkedSites)
+        VStack(spacing: 0) {
+            if checkedTotal == 0 && !items.isEmpty {
+                Text("Check at least one item to start blocking")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(total == 0)
-            .tint(Color(red: 0.10, green: 0.22, blue: 0.82))
+            HStack {
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+                Spacer()
+                let total = checkedTotal
+                Button("Start \(selectedMinutesLabel) Session – Block \(total) item\(total == 1 ? "" : "s")") {
+                    onStart(selectedMinutes, checkedApps, checkedSites)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(total == 0)
+                .tint(Color(red: 0.10, green: 0.22, blue: 0.82))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
     }
 
     private var selectedMinutesLabel: String {
@@ -203,10 +215,12 @@ struct BlockSetupView: View {
         let config = service.config
         let store = ActivityStore.shared
         let todayEvents = store.events(for: Date())
+        let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Screen Blocker"
+        let selfBundleID = Bundle.main.bundleIdentifier ?? ""
         var result: [BlockItem] = []
 
-        // Config apps
-        for appName in config.blockedApps {
+        // Config apps — exclude this app
+        for appName in config.blockedApps where appName.caseInsensitiveCompare(selfName) != .orderedSame {
             let dur = todayEvents
                 .filter { $0.appName.caseInsensitiveCompare(appName) == .orderedSame }
                 .reduce(0) { $0 + $1.duration }
@@ -227,9 +241,11 @@ struct BlockSetupView: View {
             ))
         }
 
-        // Suggestions from today's usage
+        // Suggestions from today's usage — exclude this app
         let topUsage = store.topApps(for: Date(), limit: 20)
-        for usage in topUsage where usage.duration >= 60 {
+        for usage in topUsage where usage.duration >= 60
+            && usage.bundleID != selfBundleID
+            && usage.appName.caseInsensitiveCompare(selfName) != .orderedSame {
             let cat = config.category(for: ActivityStore.eventKey(
                 ActivityEvent(timestamp: .now, duration: 0, appName: usage.appName,
                               bundleID: usage.bundleID, domain: usage.domain)

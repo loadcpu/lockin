@@ -26,7 +26,20 @@ struct Config: Codable {
 
     func category(for identifier: String) -> AppCategory {
         if let raw = appCategoryOverrides[identifier], let cat = AppCategory(rawValue: raw) { return cat }
-        return defaultCategoryMappings[identifier] ?? .other
+        if let cat = defaultCategoryMappings[identifier] { return cat }
+        return bundleIDPrefixCategory(identifier) ?? .other
+    }
+
+    private func bundleIDPrefixCategory(_ id: String) -> AppCategory? {
+        // Only match reversed-domain bundle IDs (e.g. com.apple.Foo), not web domains
+        let reversedTLDs = ["com.", "org.", "net.", "io.", "dev.", "co.", "app."]
+        guard reversedTLDs.contains(where: { id.hasPrefix($0) }) else { return nil }
+        if id.hasPrefix("com.apple.")      { return .system }
+        if id.hasPrefix("com.adobe.")      { return .creative }
+        if id.hasPrefix("com.microsoft.")  { return .work }
+        if id.hasPrefix("com.jetbrains.")  { return .development }
+        if id.hasPrefix("com.google.")     { return .work }
+        return nil
     }
 
     private static var fileURL: URL {

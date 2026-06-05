@@ -151,9 +151,15 @@ final class ActivityStore: ObservableObject {
             let cat = lookup(ActivityStore.eventKey(e))
             byCategory[cat, default: 0] += e.duration
         }
+        let noiseCategories: Set<AppCategory> = [.system, .other]
         return byCategory
             .map { CategoryUsage(category: $0.key, duration: $0.value) }
             .filter { $0.duration > 0 }
-            .sorted { $0.duration > $1.duration }
+            .sorted {
+                let aNoise = noiseCategories.contains($0.category)
+                let bNoise = noiseCategories.contains($1.category)
+                if aNoise != bNoise { return bNoise }  // noise always last
+                return $0.duration > $1.duration
+            }
     }
 }

@@ -8,6 +8,8 @@ struct DashboardView: View {
     let onConfigure: () -> Void
     let onViewStats: () -> Void
 
+    @State private var categorySegments: [(AppCategory, Double)] = []
+
     var body: some View {
         VStack(spacing: 0) {
             heroSection
@@ -20,6 +22,19 @@ struct DashboardView: View {
             bottomBar
         }
         .frame(width: 300)
+        .onAppear { refreshCategorySegments() }
+        .onChange(of: store.todayTotal) { _ in refreshCategorySegments() }
+    }
+
+    private func refreshCategorySegments() {
+        let total = store.todayTotal
+        guard total > 0 else { categorySegments = []; return }
+        let breakdown = ActivityStore.shared
+            .categoryBreakdown(for: Date()) { service.config.category(for: $0) }
+            .filter { $0.category != .system && $0.category != .other }
+        let meaningfulTotal = breakdown.reduce(0) { $0 + $1.duration }
+        guard meaningfulTotal > 0 else { categorySegments = []; return }
+        categorySegments = breakdown.map { ($0.category, $0.duration / meaningfulTotal) }
     }
 
     // MARK: - Sections
@@ -114,10 +129,7 @@ struct DashboardView: View {
     }
 
     private var miniCategoryBar: some View {
-        let segments = ActivityStore.shared
-            .categoryBreakdown(for: Date()) { service.config.category(for: $0) }
-            .map { ($0.category, store.todayTotal > 0 ? $0.duration / store.todayTotal : 0.0) }
-        return CategoryBar(segments: segments)
+        CategoryBar(segments: categorySegments)
     }
 
     // MARK: - Bottom bar

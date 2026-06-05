@@ -231,6 +231,7 @@ final class BlockerService: ObservableObject {
     }
 
     private func checkAndKill(_ app: NSRunningApplication, session s: BlockSession) {
+        guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
         let blocked = Set(s.blockedApps.map { $0.lowercased() })
         guard !blocked.isEmpty else { return }
         let name = (app.localizedName ?? "").lowercased()

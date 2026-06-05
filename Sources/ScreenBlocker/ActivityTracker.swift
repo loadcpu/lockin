@@ -13,6 +13,13 @@ final class ActivityTracker {
 
     private let idleThreshold: TimeInterval = 180  // 3 minutes
 
+    // System processes that must never be counted as screen time
+    private let skipBundleIDs: Set<String> = [
+        "com.apple.loginwindow",
+        "com.apple.ScreenSaver.Engine",
+        "com.apple.SecurityAgent",
+    ]
+
     private init() {}
 
     func start() {
@@ -20,12 +27,13 @@ final class ActivityTracker {
             beginTracking(app: app)
         }
 
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self,
-            selector: #selector(appActivated(_:)),
-            name: NSWorkspace.didActivateApplicationNotification,
-            object: nil
-        )
+        let nc = NSWorkspace.shared.notificationCenter
+        nc.addObserver(self, selector: #selector(appActivated(_:)),
+                       name: NSWorkspace.didActivateApplicationNotification, object: nil)
+        nc.addObserver(self, selector: #selector(screensSleeping),
+                       name: NSWorkspace.screensDidSleepNotification, object: nil)
+        nc.addObserver(self, selector: #selector(screensWaking),
+                       name: NSWorkspace.screensDidWakeNotification, object: nil)
 
         BrowserWatcher.shared.onDomainChanged = { [weak self] domain in
             self?.handleDomainChange(to: domain)
@@ -42,11 +50,7 @@ final class ActivityTracker {
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
         BrowserWatcher.shared.stop()
-        NSWorkspace.shared.notificationCenter.removeObserver(
-            self,
-            name: NSWorkspace.didActivateApplicationNotification,
-            object: nil
-        )
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
     // MARK: - App activation
@@ -58,10 +62,22 @@ final class ActivityTracker {
         }
     }
 
+    @objc private func screensSleeping() {
+        flushCurrent()
+    }
+
+    @objc private func screensWaking() {
+        if let app = NSWorkspace.shared.frontmostApplication {
+            beginTracking(app: app)
+        }
+    }
+
     private func beginTracking(app: NSRunningApplication) {
-        guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
-        currentAppName = app.localizedName ?? app.bundleIdentifier ?? "Unknown"
-        currentBundleID = app.bundleIdentifier ?? ""
+        let bundleID = app.bundleIdentifier ?? ""
+        guard bundleID != Bundle.main.bundleIdentifier,
+              !skipBundleIDs.contains(bundleID) else { return }
+        currentAppName = app.localizedName ?? (bundleID.isEmpty ? "Unknown" : bundleID)
+        currentBundleID = bundleID
         currentDomain = nil
         currentStartTime = Date()
     }
