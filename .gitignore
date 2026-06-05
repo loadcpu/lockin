@@ -8,3 +8,5 @@ AppIcon.iconset/
 *.d
 .DS_Store
 ScreenBlocker.app/
+ScreenBlocker.dmg
+memory/
