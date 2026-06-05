@@ -11,11 +11,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        setupMainMenu()
         BlockerService.shared.loadState()
         setupStatusItem()
         startMainTimer()
         showDashboard()
         maybePromptBrowserPermissions()
+    }
+
+    private func setupMainMenu() {
+        let appMenu = NSMenu()
+        let quitItem = NSMenuItem(title: "Quit Screen Blocker", action: #selector(handleQuit), keyEquivalent: "q")
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+        let appMenuItem = NSMenuItem()
+        appMenuItem.submenu = appMenu
+        let mainMenu = NSMenu()
+        mainMenu.addItem(appMenuItem)
+        NSApp.mainMenu = mainMenu
     }
 
     private func maybePromptBrowserPermissions() {
