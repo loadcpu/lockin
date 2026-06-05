@@ -589,7 +589,7 @@
         <div class="install-alt" id="install-alt">
           <p class="install-alt-label">or install via terminal</p>
           <div class="terminal-row">
-            <span class="terminal-cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | bash</span>
+            <span class="terminal-cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | sh</span>
             <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
           </div>
         </div>
@@ -721,7 +721,7 @@
 
   <script>
     function copyInstall(btn) {
-      navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | bash');
+      navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | sh');
       btn.textContent = 'Copied!';
       btn.classList.add('copied');
       setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
