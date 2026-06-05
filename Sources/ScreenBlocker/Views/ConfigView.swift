@@ -113,6 +113,8 @@ struct ConfigView: View {
 
     // MARK: - Websites Tab
 
+    @State private var primedCount = BlockerService.shared.primedBrowserCount
+
     private var websitesTab: some View {
         VStack(spacing: 0) {
             List {
@@ -154,6 +156,40 @@ struct ConfigView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+
+            Divider()
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Instant tab blocking")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Text(primedCount == 0
+                        ? "Not set up — open browsers, then tap Setup"
+                        : "\(primedCount) browser\(primedCount == 1 ? "" : "s") authorised")
+                        .font(.caption)
+                        .foregroundColor(primedCount == 0 ? .orange : .secondary)
+                }
+                Spacer()
+                Button("Setup…") {
+                    grantBrowserPermissions()
+                }
+                .font(.caption)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func grantBrowserPermissions() {
+        let alert = NSAlert()
+        alert.messageText = "Grant Browser Permissions"
+        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt."
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        BlockerService.shared.primeBrowserPermissions {
+            primedCount = BlockerService.shared.primedBrowserCount
         }
     }
 

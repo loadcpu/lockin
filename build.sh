@@ -43,6 +43,8 @@ cat > "$STAGING/Contents/Info.plist" << 'PLIST'
     <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key>
     <string>Personal use only</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Screen Blocker reloads your browser tabs when a session starts so blocked websites take effect immediately.</string>
 </dict>
 </plist>
 PLIST

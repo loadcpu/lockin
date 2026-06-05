@@ -15,6 +15,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupStatusItem()
         startMainTimer()
         showDashboard()
+        maybePromptBrowserPermissions()
+    }
+
+    private func maybePromptBrowserPermissions() {
+        guard !UserDefaults.standard.bool(forKey: "hasPromptedBrowserPermissions") else { return }
+        UserDefaults.standard.set(true, forKey: "hasPromptedBrowserPermissions")
+        // Let the UI settle before showing the prompt
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            self.promptBrowserPermissions()
+        }
+    }
+
+    private func promptBrowserPermissions() {
+        let alert = NSAlert()
+        alert.messageText = "Enable Instant Website Blocking"
+        alert.informativeText = "Screen Blocker can reload your open browser tabs the moment a session starts, so blocked websites are cut off immediately.\n\nmacOS will ask your permission for each browser you have open. Click Allow on each prompt — it only happens once."
+        alert.addButton(withTitle: "Grant Permission")
+        alert.addButton(withTitle: "Not Now")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        BlockerService.shared.primeBrowserPermissions()
     }
 
     // Re-open dashboard when user clicks the Dock icon

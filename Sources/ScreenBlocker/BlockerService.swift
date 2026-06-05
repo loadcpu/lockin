@@ -19,11 +19,17 @@ final class BlockerService: ObservableObject {
         config = Config.load()
         if let s = BlockSession.load() {
             if s.isActive {
-                HostsManager.applyBlocks(domains: s.blockedWebsites)
                 session = s
                 isBlocking = true
                 remainingSeconds = s.remainingSeconds
                 startMonitoring()
+                // applyBlocks now resolves IPs + pfctl (takes 2-4s) — run off main thread
+                let websites = s.blockedWebsites
+                if !websites.isEmpty {
+                    DispatchQueue.global(qos: .utility).async {
+                        HostsManager.applyBlocks(domains: websites)
+                    }
+                }
             } else {
                 HostsManager.removeBlocks()
                 BlockSession.clear()
@@ -44,13 +50,8 @@ final class BlockerService: ObservableObject {
         killBlockedApps(s)
     }
 
-    // Applies web blocks first (shows password dialog), then starts the session
-    // so the endTime is measured from after the dialog, not before.
     func startSession(minutes: Int) {
-        if !config.blockedWebsites.isEmpty {
-            guard HostsManager.applyBlocks(domains: config.blockedWebsites) else { return }
-            reloadBrowserTabs()
-        }
+        // Start timer and UI immediately — don't block main thread waiting for pfctl
         let s = BlockSession(
             minutes: minutes,
             blockedApps: config.blockedApps,
@@ -61,6 +62,17 @@ final class BlockerService: ObservableObject {
         isBlocking = true
         remainingSeconds = s.remainingSeconds
         startMonitoring()
+
+        let websites = config.blockedWebsites
+        guard !websites.isEmpty else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // applyBlocks resolves IPs + applies pfctl rules (~2-4s).
+            // reloadBrowserTabs fires 1s after that, so pfctl is already in place
+            // when tabs reload — killing existing connections on the spot.
+            if HostsManager.applyBlocks(domains: websites) {
+                self?.reloadBrowserTabs()
+            }
+        }
     }
 
     func saveConfig() {
@@ -113,32 +125,110 @@ final class BlockerService: ObservableObject {
         }
     }
 
-    private func reloadBrowserTabs() {
-        let script = """
-        repeat with browserName in {"Safari", "Google Chrome", "Firefox", "Arc", "Brave Browser", "Microsoft Edge"}
-            if application browserName is running then
-                if browserName is "Safari" then
-                    tell application "Safari"
-                        repeat with w in windows
-                            repeat with t in tabs of w
-                                set URL of t to URL of t
-                            end repeat
-                        end repeat
-                    end tell
-                else
-                    tell application browserName
-                        repeat with w in windows
-                            repeat with t in tabs of w
-                                reload t
-                            end repeat
-                        end repeat
-                    end tell
+    // MARK: - Browser permission priming
+
+    private struct Browser {
+        let name: String
+        let bundleID: String
+        let isSafari: Bool
+    }
+
+    private let knownBrowsers: [Browser] = [
+        Browser(name: "Safari",         bundleID: "com.apple.Safari",              isSafari: true),
+        Browser(name: "Google Chrome",  bundleID: "com.google.Chrome",             isSafari: false),
+        Browser(name: "Arc",            bundleID: "company.thebrowser.Browser",    isSafari: false),
+        Browser(name: "Brave Browser",  bundleID: "com.brave.Browser",             isSafari: false),
+        Browser(name: "Microsoft Edge", bundleID: "com.microsoft.edgemac",         isSafari: false),
+        Browser(name: "Firefox",        bundleID: "org.mozilla.firefox",           isSafari: false),
+    ]
+
+    private var primedBrowserIDs: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "primedBrowserIDs") ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: "primedBrowserIDs") }
+    }
+
+    @Published var primedBrowserCount: Int = UserDefaults.standard
+        .stringArray(forKey: "primedBrowserIDs").map(\.count) ?? 0
+
+    // Triggers the one-time macOS Automation permission dialog for each running browser.
+    // Safe to call anytime; intended to be called during onboarding or from Config UI.
+    func primeBrowserPermissions(completion: @escaping () -> Void = {}) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var primed = self.primedBrowserIDs
+            for b in self.knownBrowsers {
+                guard NSRunningApplication
+                    .runningApplications(withBundleIdentifier: b.bundleID).first != nil
+                else { continue }
+                // "count windows" is harmless — it just triggers the TCC dialog once.
+                let script = """
+                if application "\(b.name)" is running then
+                    tell application "\(b.name)" to count windows
                 end if
-            end if
-        end repeat
+                """
+                var err: NSDictionary?
+                NSAppleScript(source: script)?.executeAndReturnError(&err)
+                if err == nil { primed.insert(b.bundleID) }
+            }
+            self.primedBrowserIDs = primed
+            DispatchQueue.main.async {
+                self.primedBrowserCount = primed.count
+                completion()
+            }
+        }
+    }
+
+    // MARK: - Tab reload (session start)
+
+    private func reloadBrowserTabs() {
+        let primed = primedBrowserIDs
+        // Skip entirely if no browsers have been primed — avoids any surprise TCC dialogs
+        // appearing mid-session. Users prime browsers once via onboarding or Config.
+        guard !primed.isEmpty else { return }
+
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
+            for b in self.knownBrowsers where primed.contains(b.bundleID) {
+                if b.isSafari { self.runSafariReload() }
+                else          { self.runChromiumReload(b.name) }
+            }
+        }
+    }
+
+    private func runSafariReload() {
+        let script = """
+        if application "Safari" is running then
+            tell application "Safari"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        try
+                            set URL of t to URL of t
+                        end try
+                    end repeat
+                end repeat
+            end tell
+        end if
         """
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if let err { NSLog("ScreenBlocker: Safari reload error: %@", err) }
+    }
+
+    private func runChromiumReload(_ browser: String) {
+        let script = """
+        if application "\(browser)" is running then
+            tell application "\(browser)"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        try
+                            reload t
+                        end try
+                    end repeat
+                end repeat
+            end tell
+        end if
+        """
+        var err: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if let err { NSLog("ScreenBlocker: %@ reload error: %@", browser, err) }
     }
 
     private func checkAndKill(_ app: NSRunningApplication, session s: BlockSession) {
