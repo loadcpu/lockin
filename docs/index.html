@@ -346,6 +346,132 @@
       border-radius: 50%;
     }
 
+    /* ── Comparison ── */
+    .compare {
+      position: relative;
+      z-index: 1;
+      padding: 0 40px 72px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.5s ease 0.2s;
+    }
+    .compare.show { opacity: 1; }
+
+    .compare-heading {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.28);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .compare-table {
+      width: 100%;
+      max-width: 700px;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .compare-table thead th {
+      padding: 14px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-align: center;
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .compare-table thead th:first-child {
+      text-align: left;
+      color: rgba(255,255,255,0.35);
+      font-weight: 500;
+    }
+    .compare-table thead th.col-ours {
+      background: rgba(255,255,255,0.09);
+      color: #fff;
+      position: relative;
+    }
+    .compare-table thead th.col-ours::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: rgba(255,255,255,0.6);
+    }
+    .compare-table thead th.col-other {
+      color: rgba(255,255,255,0.4);
+    }
+
+    .compare-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .compare-table tbody tr:last-child { border-bottom: none; }
+    .compare-table tbody tr:hover td { background: rgba(255,255,255,0.025); }
+    .compare-table tbody tr:hover td.col-ours { background: rgba(255,255,255,0.1); }
+
+    .compare-table td {
+      padding: 12px 20px;
+      font-size: 13.5px;
+      text-align: center;
+      background: rgba(255,255,255,0.02);
+      color: rgba(255,255,255,0.5);
+      transition: background 0.15s;
+    }
+    .compare-table td:first-child {
+      text-align: left;
+      color: rgba(255,255,255,0.75);
+      font-weight: 500;
+    }
+    .compare-table td.col-ours {
+      background: rgba(255,255,255,0.055);
+    }
+
+    .ci { font-size: 16px; line-height: 1; }
+    .ci-yes { color: #30d158; }
+    .ci-no  { color: rgba(255,255,255,0.18); }
+    .ci-partial { color: rgba(255,200,0,0.6); font-size: 14px; }
+
+    .badge-free {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 980px;
+      background: rgba(48,209,88,0.15);
+      border: 1px solid rgba(48,209,88,0.3);
+      color: #30d158;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-paid {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 980px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .size-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .size-pill.small { background: rgba(48,209,88,0.12); color: #30d158; }
+    .size-pill.large { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3); }
+
+    @media (max-width: 680px) {
+      .compare { padding: 0 16px 56px; }
+      .compare-table td, .compare-table thead th { padding: 10px 12px; font-size: 12px; }
+    }
+
     /* ── Footer ── */
     footer {
       position: relative;
@@ -459,6 +585,77 @@
     <div class="strip-item"><span>📊</span> Screen Time stats</div>
   </div>
 
+  <!-- Comparison table -->
+  <div class="compare" id="compare">
+    <p class="compare-heading">How we compare</p>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="col-ours">ScreenBlocker</th>
+          <th class="col-other">Opal</th>
+          <th class="col-other">Cold Turkey</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Price</td>
+          <td class="col-ours"><span class="badge-free">Free</span></td>
+          <td><span class="badge-paid">$3.99 / mo</span></td>
+          <td><span class="badge-paid">$39 one-time</span></td>
+        </tr>
+        <tr>
+          <td>Open source</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-no">✕</span></td>
+          <td><span class="ci ci-no">✕</span></td>
+        </tr>
+        <tr>
+          <td>No account required</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-no">✕</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+        </tr>
+        <tr>
+          <td>App &amp; site blocking</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+        </tr>
+        <tr>
+          <td>Timed sessions</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+        </tr>
+        <tr>
+          <td>Screen Time stats</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-no">✕</span></td>
+        </tr>
+        <tr>
+          <td>No background drain</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-no">✕</span></td>
+          <td><span class="ci ci-partial">~</span></td>
+        </tr>
+        <tr>
+          <td>No data collection</td>
+          <td class="col-ours"><span class="ci ci-yes">✓</span></td>
+          <td><span class="ci ci-no">✕</span></td>
+          <td><span class="ci ci-yes">✓</span></td>
+        </tr>
+        <tr>
+          <td>App size</td>
+          <td class="col-ours"><span class="size-pill small">2.7 MB</span></td>
+          <td><span class="size-pill large">~80 MB</span></td>
+          <td><span class="size-pill large">~40 MB</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <footer>
     Built by <a href="https://github.com/loadcpu" target="_blank" rel="noopener">Bogdan</a>
   </footer>
@@ -482,6 +679,7 @@
           document.getElementById('dl-meta').classList.add('show');
           document.getElementById('mockup').classList.add('show');
           document.getElementById('strip').classList.add('show');
+          document.getElementById('compare').classList.add('show');
         }, 180);
       }
     })();
