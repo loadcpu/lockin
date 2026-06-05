@@ -21,6 +21,10 @@ helper that modifies /etc/hosts for website blocking. This is a
 one-time step.
 TXT
 
+echo "Signing…"
+codesign --sign - --force --deep --preserve-metadata=entitlements \
+    "$STAGING/${APP}.app" > /dev/null 2>&1
+
 echo "Creating DMG…"
 rm -f "$DMG"
 hdiutil create \
