@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupMainMenu()
         BlockerService.shared.loadState()
         HelperInstaller.ensureInstalled()
+        HelperInstaller.ensureLaunchAgent()
         ActivityTracker.shared.start()
         LimitsChecker.shared.start()
         setupStatusItem()

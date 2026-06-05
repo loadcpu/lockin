@@ -2,10 +2,12 @@ import Foundation
 import AppKit
 
 enum HelperInstaller {
-    private static let helperPath  = "/usr/local/bin/screenblocker-hosts"
-    private static let sudoersPath = "/etc/sudoers.d/screenblocker"
-    private static let versionTag  = "# sb-version v5"
-    private static let defaultsKey = "helperInstalled_v5"
+    private static let helperPath   = "/usr/local/bin/screenblocker-hosts"
+    private static let sudoersPath  = "/etc/sudoers.d/screenblocker"
+    private static let versionTag   = "# sb-version v5"
+    private static let defaultsKey  = "helperInstalled_v5"
+    private static let agentLabel   = "com.local.screenblocker"
+    private static let agentVersion = "<!-- sb-agent v1 -->"
 
     static func ensureInstalled() {
         if UserDefaults.standard.bool(forKey: defaultsKey) {
@@ -19,7 +21,64 @@ enum HelperInstaller {
         runInstaller()
     }
 
+    static func ensureLaunchAgent() {
+        guard Bundle.main.bundlePath == "/Applications/Screen Blocker.app" else { return }
+
+        let home     = FileManager.default.homeDirectoryForCurrentUser
+        let agentDir = home.appendingPathComponent("Library/LaunchAgents")
+        let plistURL = agentDir.appendingPathComponent("\(agentLabel).plist")
+        let logDir   = home.appendingPathComponent(".screenblocker")
+
+        if let existing = try? String(contentsOf: plistURL, encoding: .utf8),
+           existing.contains(agentVersion) { return }
+
+        let execPath = Bundle.main.executablePath
+            ?? "/Applications/Screen Blocker.app/Contents/MacOS/ScreenBlocker"
+
+        let plist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        \(agentVersion)
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>\(agentLabel)</string>
+            <key>ProgramArguments</key>
+            <array>
+                <string>\(execPath)</string>
+            </array>
+            <key>RunAtLoad</key>
+            <true/>
+            <key>KeepAlive</key>
+            <true/>
+            <key>StandardOutPath</key>
+            <string>\(logDir.path)/app.log</string>
+            <key>StandardErrorPath</key>
+            <string>\(logDir.path)/error.log</string>
+        </dict>
+        </plist>
+        """
+
+        DispatchQueue.global(qos: .utility).async {
+            try? FileManager.default.createDirectory(at: agentDir, withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(at: logDir,   withIntermediateDirectories: true)
+            exec("/bin/launchctl", ["unload", plistURL.path])
+            guard (try? plist.write(to: plistURL, atomically: true, encoding: .utf8)) != nil else { return }
+            exec("/bin/launchctl", ["load", "-w", plistURL.path])
+        }
+    }
+
     // MARK: - Private
+
+    private static func exec(_ path: String, _ args: [String]) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: path)
+        p.arguments = args
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError  = FileHandle.nullDevice
+        try? p.run()
+        p.waitUntilExit()
+    }
 
     private static func isHelperCurrent() -> Bool {
         guard let content = try? String(contentsOfFile: helperPath, encoding: .utf8) else { return false }
