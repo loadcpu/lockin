@@ -14,7 +14,8 @@ if [ ! -d "$STAGING" ]; then
     cd "$SCRIPT_DIR" && ./build.sh
 fi
 
-# Install privileged helper + sudoers entry (one-time sudo prompt)
+# Install privileged helper + sudoers entry (only if not already installed)
+if [ ! -f "$SUDOERS" ] || [ ! -f "$HELPER" ]; then
 echo "Installing privileged helper (requires sudo once)…"
 sudo tee "$HELPER" > /dev/null << 'HELPER_SCRIPT'
 #!/bin/bash
@@ -34,6 +35,11 @@ HELPER_SCRIPT
 sudo chmod 755 "$HELPER"
 echo "$(whoami) ALL=(root) NOPASSWD: $HELPER" | sudo tee "$SUDOERS" > /dev/null
 sudo chmod 440 "$SUDOERS"
+fi
+
+# Stop running instance before replacing the app
+pkill -x ScreenBlocker 2>/dev/null || true
+sleep 1
 
 # Copy app to /Applications
 echo "Installing app to /Applications…"

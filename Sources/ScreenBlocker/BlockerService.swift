@@ -17,14 +17,19 @@ final class BlockerService: ObservableObject {
     // Called once at launch
     func loadState() {
         config = Config.load()
-        HostsManager.cleanupOnLaunch()
-        if let s = BlockSession.load(), s.isActive {
-            session = s
-            isBlocking = true
-            remainingSeconds = s.remainingSeconds
-            startMonitoring()
+        if let s = BlockSession.load() {
+            if s.isActive {
+                HostsManager.applyBlocks(domains: s.blockedWebsites)
+                session = s
+                isBlocking = true
+                remainingSeconds = s.remainingSeconds
+                startMonitoring()
+            } else {
+                HostsManager.removeBlocks()
+                BlockSession.clear()
+            }
         } else {
-            BlockSession.clear()
+            HostsManager.removeBlocks()
         }
     }
 
@@ -44,6 +49,7 @@ final class BlockerService: ObservableObject {
     func startSession(minutes: Int) {
         if !config.blockedWebsites.isEmpty {
             guard HostsManager.applyBlocks(domains: config.blockedWebsites) else { return }
+            reloadBrowserTabs()
         }
         let s = BlockSession(
             minutes: minutes,
@@ -105,6 +111,34 @@ final class BlockerService: ObservableObject {
         for app in NSWorkspace.shared.runningApplications {
             checkAndKill(app, session: s)
         }
+    }
+
+    private func reloadBrowserTabs() {
+        let script = """
+        repeat with browserName in {"Safari", "Google Chrome", "Firefox", "Arc", "Brave Browser", "Microsoft Edge"}
+            if application browserName is running then
+                if browserName is "Safari" then
+                    tell application "Safari"
+                        repeat with w in windows
+                            repeat with t in tabs of w
+                                set URL of t to URL of t
+                            end repeat
+                        end repeat
+                    end tell
+                else
+                    tell application browserName
+                        repeat with w in windows
+                            repeat with t in tabs of w
+                                reload t
+                            end repeat
+                        end repeat
+                    end tell
+                end if
+            end if
+        end repeat
+        """
+        var err: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&err)
     }
 
     private func checkAndKill(_ app: NSRunningApplication, session s: BlockSession) {
