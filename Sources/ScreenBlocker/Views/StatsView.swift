@@ -3,6 +3,7 @@ import AppKit
 
 struct StatsView: View {
     @ObservedObject private var service = BlockerService.shared
+    @ObservedObject private var store = ActivityStore.shared
     @State private var range: TimeRange = .today
     @State private var totalDuration: TimeInterval = 0
     @State private var topApps: [ActivityStore.AppUsage] = []
@@ -40,6 +41,8 @@ struct StatsView: View {
         .frame(width: 600, height: 580)
         .onAppear(perform: reload)
         .onChange(of: range) { _ in reload() }
+        .onChange(of: store.todayTotal) { _ in if range == .today { reload() } }
+        .onReceive(NotificationCenter.default.publisher(for: .statsViewShouldReload)) { _ in reload() }
     }
 
     // MARK: - Header
@@ -205,7 +208,6 @@ struct StatsView: View {
     }
 
     private func reload() {
-        let store = ActivityStore.shared
         let d = range.days
         totalDuration = store.totalDuration(forDays: d)
         topApps = store.topApps(forDays: d, limit: 12)

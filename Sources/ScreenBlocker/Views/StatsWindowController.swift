@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+extension Notification.Name {
+    static let statsViewShouldReload = Notification.Name("StatsViewShouldReload")
+}
+
 final class StatsWindowController: NSWindowController {
     convenience init() {
         let hosting = NSHostingView(rootView: StatsView())
@@ -25,5 +29,6 @@ final class StatsWindowController: NSWindowController {
         super.showWindow(sender)
         window?.makeKeyAndOrderFront(sender)
         NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .statsViewShouldReload, object: nil)
     }
 }
