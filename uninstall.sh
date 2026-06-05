@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PLIST="$HOME/Library/LaunchAgents/com.local.screenblocker.plist"
-INSTALL_DIR="/Applications/ScreenBlocker.app"
+INSTALL_DIR="/Applications/Screen Blocker.app"
 HELPER=/usr/local/bin/screenblocker-hosts
 SUDOERS=/etc/sudoers.d/screenblocker
 

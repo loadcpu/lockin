@@ -165,6 +165,58 @@
     }
     .dl-meta.show { opacity: 1; }
 
+    /* ── Terminal install block ── */
+    .install-alt {
+      margin-top: 20px;
+      opacity: 0;
+      transition: opacity 0.5s ease 0.15s;
+    }
+    .install-alt.show { opacity: 1; }
+    .install-alt-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .terminal-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      overflow: hidden;
+      max-width: 420px;
+    }
+    .terminal-cmd {
+      flex: 1;
+      padding: 9px 14px;
+      font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .terminal-cmd .prompt { color: rgba(255,255,255,0.2); user-select: none; }
+    .copy-btn {
+      padding: 9px 14px;
+      background: rgba(255,255,255,0.06);
+      border: none;
+      border-left: 1px solid rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.35);
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .copy-btn.copied { color: #30d158; }
+
     /* ── Right: mockup ── */
     .mockup {
       width: 256px;
@@ -534,6 +586,13 @@
           </a>
         </div>
         <p class="dl-meta" id="dl-meta">macOS 13 Ventura or later · Apple Silicon &amp; Intel</p>
+        <div class="install-alt" id="install-alt">
+          <p class="install-alt-label">or install via terminal</p>
+          <div class="terminal-row">
+            <span class="terminal-cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | bash</span>
+            <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
+          </div>
+        </div>
       </div>
 
       <!-- Mockup -->
@@ -661,6 +720,13 @@
   </footer>
 
   <script>
+    function copyInstall(btn) {
+      navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | bash');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    }
+
     const heroEl = document.getElementById('hero-text');
     heroEl.innerHTML = heroEl.innerText.split(/(\s+)/).map(w =>
       w.trim() ? `<span class="w">${w}</span>` : w
@@ -680,6 +746,7 @@
           document.getElementById('mockup').classList.add('show');
           document.getElementById('strip').classList.add('show');
           document.getElementById('compare').classList.add('show');
+          document.getElementById('install-alt').classList.add('show');
         }, 180);
       }
     })();
