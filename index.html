@@ -115,24 +115,6 @@
     }
     .actions.show { opacity: 1; transform: none; }
 
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 10px 20px;
-      background: #fff;
-      color: #000;
-      border-radius: 980px;
-      font-size: 15px;
-      font-weight: 600;
-      text-decoration: none;
-      letter-spacing: -0.01em;
-      transition: opacity 0.15s, transform 0.15s;
-    }
-    .btn-primary:hover  { opacity: 0.84; transform: translateY(-1px); }
-    .btn-primary:active { opacity: 0.72; transform: translateY(0); }
-    .btn-primary svg { width: 13px; height: 13px; flex-shrink: 0; }
-
     .btn-ghost {
       display: inline-flex;
       align-items: center;
@@ -527,12 +509,6 @@
         <h1 id="hero-text">Block apps.<br>Own your screen time.</h1>
         <p class="tagline" id="tagline">Set a timer, lock out your distractions, and see exactly where your hours go.</p>
         <div class="actions" id="actions">
-          <a class="btn-primary" href="https://github.com/loadcpu/screen-blocker/releases/latest/download/ScreenBlocker.dmg" download>
-            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 1v9M8 10l-3-3M8 10l3-3M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Download for macOS
-          </a>
           <a class="btn-ghost" href="https://github.com/loadcpu/screen-blocker" target="_blank" rel="noopener">
             <svg viewBox="0 0 15 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M7.5 0C3.36 0 0 3.36 0 7.5c0 3.31 2.15 6.12 5.13 7.11.37.07.51-.16.51-.36v-1.28C3.53 13.37 3.1 11.9 3.1 11.9c-.34-.87-.84-1.1-.84-1.1-.69-.47.05-.46.05-.46.76.05 1.16.78 1.16.78.67 1.15 1.77.82 2.2.63.07-.49.26-.82.48-1.01-1.67-.19-3.43-.84-3.43-3.72 0-.82.29-1.49.77-2.02-.08-.19-.33-.95.07-1.99 0 0 .63-.2 2.07.77a7.2 7.2 0 013.76 0c1.44-.97 2.07-.77 2.07-.77.4 1.04.15 1.8.07 1.99.48.53.77 1.2.77 2.02 0 2.89-1.76 3.53-3.43 3.72.27.23.51.69.51 1.39v2.06c0 .2.14.43.51.36A7.5 7.5 0 0015 7.5C15 3.36 11.64 0 7.5 0z"/>
@@ -540,9 +516,9 @@
             GitHub
           </a>
         </div>
-        <p class="dl-meta" id="dl-meta">macOS 13 Ventura or later · Apple Silicon &amp; Intel</p>
+        <p class="dl-meta" id="dl-meta">macOS 13 Ventura or later · Apple Silicon &amp; Intel · Free &amp; open source</p>
         <div class="install-alt" id="install-alt">
-          <p class="install-alt-label">or install via terminal</p>
+          <p class="install-alt-label">Install via terminal</p>
           <div class="terminal-row">
             <span class="terminal-cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | sh</span>
             <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
