@@ -277,6 +277,7 @@ struct StatsView: View {
         totalDuration = store.totalDuration(forDays: d)
         topApps = store.topApps(forDays: d, limit: 12)
         categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
+            .sorted { $0.duration > $1.duration }
         focusTotal = FocusStore.shared.focusTotal(forDays: d)
     }
 }
