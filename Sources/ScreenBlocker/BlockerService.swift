@@ -93,11 +93,16 @@ final class BlockerService: ObservableObject {
     // MARK: - Private
 
     private func endSession() {
-        NSLog("ScreenBlocker: endSession called")
         var focusDuration: TimeInterval = 0
         if let s = session {
             focusDuration = s.endTime.timeIntervalSince(s.startTime)
             FocusStore.shared.record(duration: focusDuration)
+        }
+        // Fire notification BEFORE BlockSession.clear() — deleting session.json
+        // triggers a launchd SIGTERM that terminates this process. Any async work
+        // queued after clear() may never run.
+        if focusDuration > 0 {
+            fireSessionCompleteNotification(duration: focusDuration)
         }
         isBlocking = false
         remainingSeconds = 0
@@ -106,44 +111,25 @@ final class BlockerService: ObservableObject {
         BlockSession.clear()
         stopMonitoring()
         HostsManager.removeBlocks()
-        NSLog("ScreenBlocker: endSession focusDuration=%.0f", focusDuration)
-        if focusDuration > 0 {
-            fireSessionCompleteNotification(duration: focusDuration)
-        }
     }
 
     private func fireSessionCompleteNotification(duration: TimeInterval) {
-        let center = UNUserNotificationCenter.current()
-        center.getNotificationSettings { settings in
-            NSLog("ScreenBlocker: notification authorizationStatus=%ld alertStyle=%ld", settings.authorizationStatus.rawValue, settings.alertStyle.rawValue)
-            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
-                NSLog("ScreenBlocker: notifications not authorized — requesting now")
-                center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-                    NSLog("ScreenBlocker: re-request granted=%d error=%@", granted, error?.localizedDescription ?? "nil")
-                    if granted { self.postSessionCompleteNotification(duration: duration) }
-                }
-                return
-            }
-            self.postSessionCompleteNotification(duration: duration)
-        }
-    }
-
-    private func postSessionCompleteNotification(duration: TimeInterval) {
         let mins = Int(duration / 60)
         let content = UNMutableNotificationContent()
         content.title = "Focus session complete"
         content.body = mins > 0 ? "\(mins)m focused." : "Session ended."
         content.sound = .default
+        // Use a 1s trigger so the request is registered with the system
+        // notification daemon before this process exits.
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let request = UNNotificationRequest(
             identifier: "session-complete-\(Date().timeIntervalSinceReferenceDate)",
             content: content,
-            trigger: nil
+            trigger: trigger
         )
         UNUserNotificationCenter.current().add(request) { error in
             if let error {
                 NSLog("ScreenBlocker: notification add failed: %@", error.localizedDescription)
-            } else {
-                NSLog("ScreenBlocker: notification scheduled successfully")
             }
         }
     }
