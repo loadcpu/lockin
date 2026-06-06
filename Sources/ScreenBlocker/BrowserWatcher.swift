@@ -42,8 +42,7 @@ final class BrowserWatcher {
     private func poll() {
         guard let front = NSWorkspace.shared.frontmostApplication,
               let bundleID = front.bundleIdentifier,
-              Self.isBrowser(bundleID),
-              BlockerService.shared.primedBrowserIDs.contains(bundleID)
+              Self.isBrowser(bundleID)
         else {
             maybeFireCallback(nil)
             return

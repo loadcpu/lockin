@@ -12,6 +12,20 @@ enum AppCategory: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    var isProductive: Bool {
+        switch self {
+        case .work, .development, .creative, .communication: return true
+        default: return false
+        }
+    }
+
+    var isDistracting: Bool {
+        switch self {
+        case .social, .entertainment: return true
+        default: return false
+        }
+    }
+
     var icon: String {
         switch self {
         case .work:          return "briefcase.fill"

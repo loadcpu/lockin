@@ -92,6 +92,9 @@ final class BlockerService: ObservableObject {
     // MARK: - Private
 
     private func endSession() {
+        if let s = session {
+            FocusStore.shared.record(duration: s.endTime.timeIntervalSince(s.startTime))
+        }
         isBlocking = false
         remainingSeconds = 0
         session = nil

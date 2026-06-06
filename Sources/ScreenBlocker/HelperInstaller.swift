@@ -7,7 +7,7 @@ enum HelperInstaller {
     private static let versionTag   = "# sb-version v5"
     private static let defaultsKey  = "helperInstalled_v5"
     private static let agentLabel   = "com.local.screenblocker"
-    private static let agentVersion = "<!-- sb-agent v1 -->"
+    private static let agentVersion = "<!-- sb-agent v3 -->"
 
     static func ensureInstalled() {
         if UserDefaults.standard.bool(forKey: defaultsKey) {
@@ -50,7 +50,13 @@ enum HelperInstaller {
             <key>RunAtLoad</key>
             <true/>
             <key>KeepAlive</key>
-            <true/>
+            <dict>
+                <key>PathState</key>
+                <dict>
+                    <key>\(home.path)/.screenblocker/session.json</key>
+                    <true/>
+                </dict>
+            </dict>
             <key>StandardOutPath</key>
             <string>\(logDir.path)/app.log</string>
             <key>StandardErrorPath</key>

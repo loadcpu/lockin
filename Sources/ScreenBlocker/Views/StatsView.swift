@@ -13,6 +13,7 @@ struct StatsView: View {
     @State private var topApps: [ActivityStore.AppUsage] = []
     @State private var categories: [ActivityStore.CategoryUsage] = []
     @State private var todayEvents: [ActivityEvent] = []
+    @State private var focusTotal: TimeInterval = 0
 
     enum TimeRange: String, CaseIterable {
         case today = "Today"
@@ -90,23 +91,67 @@ struct StatsView: View {
     // MARK: - Summary card
 
     private var summaryCard: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(rangeLabel)
-                    .font(.caption.bold())
-                    .foregroundColor(.secondary)
-                    .tracking(0.5)
-                Text(totalDuration.formattedDuration)
-                    .font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit())
-                Text("total screen time")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(rangeLabel)
+                        .font(.caption.bold())
+                        .foregroundColor(.secondary)
+                        .tracking(0.5)
+                    Text(totalDuration.formattedDuration)
+                        .font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit())
+                    Text("total screen time")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                if focusTotal > 0 {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("FOCUS")
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                            .tracking(0.5)
+                        Text(focusTotal.formattedDuration)
+                            .font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundColor(Color(red: 0.20, green: 0.78, blue: 0.35))
+                        Text("focused")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
-            Spacer()
+            if productiveTime > 0 || distractingTime > 0 {
+                Divider()
+                productivityRow
+            }
         }
         .padding(20)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
+    }
+
+    private var productivityRow: some View {
+        HStack(spacing: 16) {
+            if productiveTime > 0 {
+                productivityChip("Productive", duration: productiveTime, color: Color(red: 0.20, green: 0.78, blue: 0.35))
+            }
+            if distractingTime > 0 {
+                productivityChip("Distracting", duration: distractingTime, color: Color(red: 0.96, green: 0.26, blue: 0.21))
+            }
+            if neutralTime > 0 {
+                productivityChip("Neutral", duration: neutralTime, color: Color(red: 0.65, green: 0.65, blue: 0.70))
+            }
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private func productivityChip(_ name: String, duration: TimeInterval, color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(name).font(.caption).foregroundColor(.secondary)
+            Text(duration.formattedDuration).font(.caption.bold())
+        }
     }
 
     private var rangeLabel: String {
@@ -142,9 +187,21 @@ struct StatsView: View {
         }
     }
 
-    private var categorySegments: [(AppCategory, Double)] {
+    private var categorySegments: [(Color, Double)] {
         guard totalDuration > 0 else { return [] }
-        return categories.map { ($0.category, $0.duration / totalDuration) }
+        return categories.map { ($0.category.color, $0.duration / totalDuration) }
+    }
+
+    private var productiveTime: TimeInterval {
+        categories.filter { $0.category.isProductive }.reduce(0) { $0 + $1.duration }
+    }
+
+    private var distractingTime: TimeInterval {
+        categories.filter { $0.category.isDistracting }.reduce(0) { $0 + $1.duration }
+    }
+
+    private var neutralTime: TimeInterval {
+        categories.filter { !$0.category.isProductive && !$0.category.isDistracting }.reduce(0) { $0 + $1.duration }
     }
 
     private func categoryLegendRow(_ usage: ActivityStore.CategoryUsage) -> some View {
@@ -216,6 +273,7 @@ struct StatsView: View {
         totalDuration = store.totalDuration(forDays: d)
         topApps = store.topApps(forDays: d, limit: 12)
         categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
+        focusTotal = FocusStore.shared.focusTotal(forDays: d)
         if range == .today { todayEvents = store.events(for: Date()) }
     }
 }
@@ -285,18 +343,18 @@ struct DayTimeline: View {
 // MARK: - Category bar
 
 struct CategoryBar: View {
-    let segments: [(AppCategory, Double)]
+    let segments: [(Color, Double)]
 
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 3) {
+            HStack(spacing: 2) {
                 ForEach(Array(segments.enumerated()), id: \.0) { _, seg in
-                    let w = max(6, (geo.size.width - CGFloat(segments.count - 1) * 3) * seg.1)
-                    RoundedRectangle(cornerRadius: 4).fill(seg.0.color).frame(width: w)
+                    let w = max(4, (geo.size.width - CGFloat(segments.count - 1) * 2) * seg.1)
+                    RoundedRectangle(cornerRadius: 2).fill(seg.0).frame(width: w)
                 }
             }
         }
-        .frame(height: 16)
+        .frame(height: 6)
     }
 }
 

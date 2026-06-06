@@ -16,12 +16,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var dashboardWC: HostingWindowController?
     private var statsWC: HostingWindowController?
     private var blockSetupWC: HostingWindowController?
+    private var sigTermSource: DispatchSourceSignal?
 
     // MARK: - Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.local.screenblocker"
+        if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
+            NSApp.terminate(nil)
+            return
+        }
+
         NSApp.setActivationPolicy(.regular)
         setupMainMenu()
+        installSigTermHandler()
         BlockerService.shared.loadState()
         HelperInstaller.ensureInstalled()
         HelperInstaller.ensureLaunchAgent()
@@ -43,6 +51,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let mainMenu = NSMenu()
         mainMenu.addItem(appMenuItem)
         NSApp.mainMenu = mainMenu
+    }
+
+    private func installSigTermHandler() {
+        // Tell the OS not to default-handle SIGTERM (which would kill the process).
+        // We take ownership of it via DispatchSource so we can gate on isBlocking.
+        signal(SIGTERM, SIG_IGN)
+        let src = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        src.setEventHandler { [weak self] in
+            guard !BlockerService.shared.isBlocking else { return }
+            NSApp.terminate(self)
+        }
+        src.resume()
+        sigTermSource = src
     }
 
     private func maybePromptBrowserPermissions() {
@@ -90,7 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     onViewStats:     { [weak self] in self?.openStats() }
                 ),
                 title: "Screen Blocker",
-                size: NSSize(width: 280, height: 300),
+                size: NSSize(width: 300, height: 300),
                 style: [.titled, .closable, .fullSizeContentView]
             ) { win, hosting in
                 win.setContentSize(hosting.fittingSize)
@@ -125,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func startMainTimer() {
         mainTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             BlockerService.shared.tick()
+            ActivityStore.shared.tick()
             self?.refreshButton()
         }
     }
