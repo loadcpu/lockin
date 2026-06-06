@@ -108,10 +108,9 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 14px;
       opacity: 0;
       transform: translateY(6px);
-      transition: opacity 0.5s ease 0.05s, transform 0.5s ease 0.05s;
+      transition: opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s;
     }
     .actions.show { opacity: 1; transform: none; }
 
@@ -144,9 +143,9 @@
     .dl-meta.show { opacity: 1; }
 
     .install-alt {
-      margin-top: 20px;
+      margin-bottom: 16px;
       opacity: 0;
-      transition: opacity 0.5s ease 0.15s;
+      transition: opacity 0.5s ease 0.05s;
     }
     .install-alt.show { opacity: 1; }
     .install-alt-label {
@@ -193,9 +192,9 @@
     .copy-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
     .copy-btn.copied { color: #30d158; }
 
-    /* ── Mockup — exact match to Swift source (300px frame width) ── */
+    /* ── Mockup — Swift source is 300px; displayed at 265px ── */
     .mockup {
-      width: 300px;
+      width: 265px;
       flex-shrink: 0;
       background: #1e1e20;
       border: 1px solid rgba(255,255,255,0.1);
@@ -237,43 +236,38 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 28px 20px 0;
-      gap: 10px;
+      padding: 22px 18px 0;
+      gap: 9px;
     }
 
 
-    /* App name — .title3.bold = 20px bold */
     .m-appname {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       color: #fff;
       letter-spacing: -0.015em;
     }
 
-    /* Spacers between hero → status: 20px + 16px */
-    .m-spacer-20 { height: 20px; }
-    .m-spacer-16 { height: 16px; }
+    .m-spacer-20 { height: 17px; }
+    .m-spacer-16 { height: 14px; }
 
-    /* Blocking status card — Color.red.opacity(0.08), cornerRadius 12, paddingV 18, horizontal padding 20 */
     .m-status {
-      margin: 0 20px;
+      margin: 0 17px;
       background: rgba(255, 69, 58, 0.08);
-      border-radius: 12px;
-      padding: 18px 16px;
+      border-radius: 11px;
+      padding: 16px 14px;
       text-align: center;
     }
-    /* SESSION ACTIVE — caption.bold = 11px bold, .red (#ff453a dark mode), tracking 1 */
     .m-session-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       color: #ff453a;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
-    /* Timer — system(44, semibold, rounded).monospacedDigit() */
     .m-timer {
-      font-size: 44px;
+      font-size: 39px;
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       letter-spacing: -0.04em;
@@ -281,73 +275,65 @@
       line-height: 1.05;
       font-family: -apple-system, "SF Pro Rounded", "Helvetica Neue", sans-serif;
     }
-    /* remaining — caption = 11px, secondary */
     .m-remaining {
-      font-size: 11px;
+      font-size: 10px;
       color: rgba(255,255,255,0.45);
-      margin-top: 4px;
+      margin-top: 3px;
     }
 
-    /* Divider */
     .m-divider {
-      margin: 0 20px;
+      margin: 0 17px;
       height: 1px;
       background: rgba(255,255,255,0.08);
     }
 
-    /* Quick stats — paddingH 20, paddingV 14 */
     .m-stats {
-      padding: 14px 20px;
+      padding: 12px 17px;
     }
     .m-stats-header {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
     }
-    /* TODAY — caption2.bold = 11px bold, secondary, tracking 0.6 */
     .m-stats-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       color: rgba(255,255,255,0.45);
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    /* View Details → — caption = 12px, blue */
     .m-stats-link {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
       color: #0a84ff;
     }
     .m-focus-row {
       display: flex;
       align-items: baseline;
-      gap: 6px;
+      gap: 5px;
     }
-    /* Focus time — system(24, bold, rounded), Color(r:0.20,g:0.78,b:0.35) = #33c759 */
     .m-focus-time {
-      font-size: 24px;
+      font-size: 21px;
       font-weight: 700;
       color: #33c759;
       letter-spacing: -0.03em;
       line-height: 1;
       font-family: -apple-system, "SF Pro Rounded", "Helvetica Neue", sans-serif;
     }
-    /* focus time label — caption = 12px, secondary */
     .m-focus-label {
-      font-size: 12px;
+      font-size: 11px;
       color: rgba(255,255,255,0.45);
       padding-bottom: 1px;
     }
 
-    /* Bottom bar — subheadline = 15px, secondary, paddingH 24, paddingV 14 */
     .m-bar {
       display: flex;
       justify-content: space-between;
-      padding: 14px 24px;
+      padding: 12px 21px;
     }
     .m-bar-btn {
-      font-size: 15px;
+      font-size: 13px;
       color: rgba(255,255,255,0.45);
     }
 
@@ -508,6 +494,13 @@
       <div>
         <h1 id="hero-text">Block apps.<br>Own your screen time.</h1>
         <p class="tagline" id="tagline">Set a timer, lock out your distractions, and see exactly where your hours go.</p>
+        <div class="install-alt" id="install-alt">
+          <p class="install-alt-label">Install via terminal</p>
+          <div class="terminal-row">
+            <span class="terminal-cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | sh</span>
+            <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
+          </div>
+        </div>
         <div class="actions" id="actions">
           <a class="btn-ghost" href="https://github.com/loadcpu/screen-blocker" target="_blank" rel="noopener">
             <svg viewBox="0 0 15 15" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -515,14 +508,6 @@
             </svg>
             GitHub
           </a>
-        </div>
-        <p class="dl-meta" id="dl-meta">macOS 13 Ventura or later · Apple Silicon &amp; Intel · Free &amp; open source</p>
-        <div class="install-alt" id="install-alt">
-          <p class="install-alt-label">Install via terminal</p>
-          <div class="terminal-row">
-            <span class="terminal-cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | sh</span>
-            <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
-          </div>
         </div>
       </div>
 
@@ -541,7 +526,7 @@
         <!-- heroSection: VStack(spacing:10), paddingTop 28 -->
         <div class="m-hero">
           <!-- Actual app icon from AppIcon.iconset -->
-          <img src="icon.png" width="72" height="72" style="border-radius:16px;box-shadow:0 8px 24px rgba(10,26,122,0.55)" alt="Screen Blocker icon">
+          <img src="icon.png" width="63" height="63" style="border-radius:14px;box-shadow:0 6px 20px rgba(10,26,122,0.55)" alt="Screen Blocker icon">
           <!-- .title3.bold = 20px bold -->
           <div class="m-appname">Screen Blocker</div>
         </div>
@@ -695,7 +680,7 @@
         setTimeout(lightNext, 130);
       } else {
         setTimeout(() => {
-          ['tagline','actions','dl-meta','mockup','strip','compare','install-alt']
+          ['tagline','install-alt','actions','mockup','strip','compare']
             .forEach(id => document.getElementById(id).classList.add('show'));
         }, 180);
       }
