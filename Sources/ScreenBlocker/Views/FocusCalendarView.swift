@@ -5,11 +5,15 @@ struct FocusCalendarView: View {
         case week = "Week"; case month = "Month"; case year = "Year"
     }
 
-    @State private var selectedRange: Range = .month
+    @State private var selectedRange: Range
     @State private var data: [Date: TimeInterval] = [:]
 
     private let green = Color(red: 0.20, green: 0.78, blue: 0.35)
     private let daySymbols = ["S", "M", "T", "W", "T", "F", "S"]
+
+    init(initialRange: Range = .month) {
+        _selectedRange = State(initialValue: initialRange)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

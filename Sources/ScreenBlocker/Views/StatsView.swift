@@ -12,10 +12,7 @@ struct StatsView: View {
     @State private var totalDuration: TimeInterval = 0
     @State private var topApps: [ActivityStore.AppUsage] = []
     @State private var categories: [ActivityStore.CategoryUsage] = []
-    @State private var todayEvents: [ActivityEvent] = []
     @State private var focusTotal: TimeInterval = 0
-    @State private var currentStreak = 0
-    @State private var longestStreak = 0
 
     enum TimeRange: String, CaseIterable {
         case today = "Today"
@@ -35,12 +32,11 @@ struct StatsView: View {
                 emptyState
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 20) {
                         summaryCard
-                        focusCalendarSection
-                        if range == .today { timelineSection }
                         categorySection
                         topAppsSection
+                        if range != .today { focusCalendarSection }
                     }
                     .padding(24)
                 }
@@ -94,69 +90,51 @@ struct StatsView: View {
     // MARK: - Summary card
 
     private var summaryCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(rangeLabel)
-                        .font(.caption.bold())
-                        .foregroundColor(.secondary)
-                        .tracking(0.5)
-                    Text(totalDuration.formattedDuration)
-                        .font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit())
-                    Text("total screen time")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
+        let green = Color(red: 0.20, green: 0.78, blue: 0.35)
+        return VStack(alignment: .leading, spacing: 14) {
+            Text(rangeLabel)
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+                .tracking(0.5)
+
+            HStack(alignment: .bottom, spacing: 0) {
                 if focusTotal > 0 {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("FOCUS")
-                            .font(.caption.bold())
-                            .foregroundColor(.secondary)
-                            .tracking(0.5)
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(focusTotal.formattedDuration)
-                            .font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
-                            .foregroundColor(Color(red: 0.20, green: 0.78, blue: 0.35))
+                            .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundColor(green)
                         Text("focused")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(totalDuration.formattedDuration)
+                            .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                            .foregroundColor(.primary.opacity(0.5))
+                        Text("screen time")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                } else {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(totalDuration.formattedDuration)
+                            .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        Text("screen time")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
                 }
             }
+
             if productiveTime > 0 || distractingTime > 0 {
-                Divider()
                 productivityRow
-            }
-            if currentStreak > 0 || longestStreak > 0 {
-                Divider()
-                streakRow
             }
         }
         .padding(20)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
-    }
-
-    private var streakRow: some View {
-        HStack(spacing: 24) {
-            streakChip("CURRENT STREAK", value: currentStreak, color: .orange)
-            if longestStreak > currentStreak {
-                streakChip("BEST STREAK", value: longestStreak, color: Color(NSColor.secondaryLabelColor))
-            }
-            Spacer()
-        }
-    }
-
-    private func streakChip(_ label: String, value: Int, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.caption2.bold())
-                .foregroundColor(.secondary)
-                .tracking(0.4)
-            Text("\(value) day\(value == 1 ? "" : "s")")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(color)
-        }
     }
 
     private var productivityRow: some View {
@@ -194,25 +172,11 @@ struct StatsView: View {
     // MARK: - Focus calendar
 
     private var focusCalendarSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            FocusCalendarView()
-        }
-        .padding(20)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(12)
-    }
-
-    // MARK: - Daily timeline
-
-    private var timelineSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("TODAY'S TIMELINE")
-            DayTimeline(
-                events: todayEvents,
-                dayStart: Calendar.current.startOfDay(for: Date()),
-                categoryLookup: { service.config.category(for: $0) }
-            )
-        }
+        let calRange: FocusCalendarView.Range = range == .week ? .week : .month
+        return FocusCalendarView(initialRange: calRange)
+            .padding(20)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(12)
     }
 
     // MARK: - Category section
@@ -314,77 +278,6 @@ struct StatsView: View {
         topApps = store.topApps(forDays: d, limit: 12)
         categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
         focusTotal = FocusStore.shared.focusTotal(forDays: d)
-        if range == .today { todayEvents = store.events(for: Date()) }
-        DispatchQueue.global(qos: .utility).async {
-            let cs = FocusStore.shared.currentStreak()
-            let ls = FocusStore.shared.longestStreak()
-            DispatchQueue.main.async {
-                currentStreak = cs
-                longestStreak = ls
-            }
-        }
-    }
-}
-
-// MARK: - Daily Timeline
-
-struct DayTimeline: View {
-    let events: [ActivityEvent]
-    let dayStart: Date
-    let categoryLookup: (String) -> AppCategory
-
-    private let totalSeconds: Double = 24 * 3600
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Canvas { ctx, size in
-                // Track background
-                ctx.fill(
-                    Path(CGRect(origin: .zero, size: size)),
-                    with: .color(Color(NSColor.separatorColor).opacity(0.25))
-                )
-
-                for event in events {
-                    let offset = event.timestamp.timeIntervalSince(dayStart)
-                    guard offset < totalSeconds else { continue }
-                    let clamped = max(0, offset)
-                    let end = min(totalSeconds, offset + event.duration)
-                    guard end > clamped else { continue }
-
-                    let x = CGFloat(clamped / totalSeconds) * size.width
-                    let w = max(1.5, CGFloat((end - clamped) / totalSeconds) * size.width)
-                    let id = event.domain ?? (event.bundleID.isEmpty ? event.appName : event.bundleID)
-                    let color = categoryLookup(id).color
-
-                    ctx.fill(
-                        Path(CGRect(x: x, y: 0, width: w, height: size.height)),
-                        with: .color(color)
-                    )
-                }
-
-                // "now" marker
-                let nowOffset = Date().timeIntervalSince(dayStart)
-                if nowOffset > 0 && nowOffset < totalSeconds {
-                    let nowX = CGFloat(nowOffset / totalSeconds) * size.width
-                    ctx.fill(
-                        Path(CGRect(x: nowX - 1, y: 0, width: 2, height: size.height)),
-                        with: .color(.white.opacity(0.9))
-                    )
-                }
-            }
-            .frame(height: 28)
-            .cornerRadius(5)
-
-            // Hour labels
-            HStack(spacing: 0) {
-                ForEach(["12a", "6a", "12p", "6p", "11p"], id: \.self) { label in
-                    Text(label)
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                    if label != "11p" { Spacer() }
-                }
-            }
-        }
     }
 }
 
