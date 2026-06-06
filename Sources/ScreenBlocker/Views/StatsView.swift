@@ -91,7 +91,7 @@ struct StatsView: View {
 
     private var summaryCard: some View {
         let green = Color(red: 0.20, green: 0.78, blue: 0.35)
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 10) {
             Text(rangeLabel)
                 .font(.caption.bold())
                 .foregroundColor(.secondary)
@@ -99,29 +99,29 @@ struct StatsView: View {
 
             HStack(alignment: .bottom, spacing: 0) {
                 if focusTotal > 0 {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(focusTotal.formattedDuration)
-                            .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundColor(green)
                         Text("focused")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: 1) {
                         Text(totalDuration.formattedDuration)
-                            .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                            .font(.system(size: 18, weight: .semibold, design: .rounded).monospacedDigit())
                             .foregroundColor(.primary.opacity(0.5))
                         Text("screen time")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 } else {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(totalDuration.formattedDuration)
-                            .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
                         Text("screen time")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -150,7 +150,7 @@ struct StatsView: View {
                 productivityRow
             }
         }
-        .padding(20)
+        .padding(16)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
@@ -202,17 +202,12 @@ struct StatsView: View {
     // MARK: - Category section
 
     private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let visible = categories.filter { totalDuration > 0 && $0.duration / totalDuration * 100 >= 0.5 }
+        return VStack(alignment: .leading, spacing: 12) {
             sectionLabel("BY CATEGORY")
             CategoryBar(segments: categorySegments)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(categories) { usage in categoryLegendRow(usage) }
-            }
-            if let other = categories.first(where: { $0.category == .other }),
-               totalDuration > 0, other.duration / totalDuration > 0.10 {
-                Text("Use the ∨ menu on any app row below to recategorize")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                ForEach(visible) { usage in categoryLegendRow(usage) }
             }
         }
     }
@@ -404,6 +399,7 @@ private struct AppRow: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
     }
 
