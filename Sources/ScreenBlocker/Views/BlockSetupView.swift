@@ -16,15 +16,13 @@ struct BlockSetupView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
             durationRow
             Divider()
             itemList
             Divider()
             actionBar
         }
-        .frame(width: 480)
+        .frame(width: 560, height: 660)
         .onAppear(perform: loadItems)
     }
 
@@ -86,13 +84,13 @@ struct BlockSetupView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
-                        configSection
                         if suggestedItems.count > 0 {
                             suggestionSection
                         }
+                        configSection
                     }
                 }
-                .frame(maxHeight: 280)
+                .frame(maxHeight: .infinity)
             }
         }
     }
@@ -108,7 +106,7 @@ struct BlockSetupView: View {
 
     private var suggestionSection: some View {
         Group {
-            sectionHeader("SUGGESTED – from today's usage")
+            sectionHeader("SUGGESTED")
             ForEach(suggestedItems) { item in itemRow(item) }
         }
     }
@@ -135,9 +133,16 @@ struct BlockSetupView: View {
             .labelsHidden()
             .toggleStyle(.checkbox)
 
-            Image(systemName: item.isApp ? "app.fill" : "globe")
-                .frame(width: 16)
-                .foregroundColor(item.category.color)
+            Group {
+                if let img = item.icon {
+                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
+                } else if item.isApp {
+                    Image(systemName: "app.fill").foregroundColor(.secondary)
+                } else {
+                    Image(systemName: "globe").foregroundColor(item.category.color)
+                }
+            }
+            .frame(width: 20, height: 20)
 
             Text(item.displayName)
                 .font(.subheadline)
@@ -176,25 +181,16 @@ struct BlockSetupView: View {
 
     private var actionBar: some View {
         VStack(spacing: 0) {
-            if checkedTotal == 0 && !items.isEmpty {
-                Text("Check at least one item to start blocking")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-            }
             HStack {
                 Button("Cancel", action: onCancel)
                     .buttonStyle(.plain)
                     .foregroundColor(.secondary)
                 Spacer()
-                let total = checkedTotal
-                Button("Start \(selectedMinutesLabel) Session – Block \(total) item\(total == 1 ? "" : "s")") {
+                Button("Start \(selectedMinutesLabel) Session") {
                     onStart(selectedMinutes, checkedApps, checkedSites)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(total == 0)
+                .disabled(checkedTotal == 0)
                 .tint(Color(red: 0.10, green: 0.22, blue: 0.82))
             }
             .padding(.horizontal, 20)
@@ -222,21 +218,42 @@ struct BlockSetupView: View {
         let topUsage = store.topApps(forDays: 1, limit: 50)
         var durationByName: [String: TimeInterval] = [:]
         var durationByDomain: [String: TimeInterval] = [:]
+        var bundleIDByName: [String: String] = [:]
         for u in topUsage {
             if let domain = u.domain {
                 durationByDomain[domain, default: 0] += u.duration
             } else {
                 durationByName[u.appName.lowercased(), default: 0] += u.duration
+                if !u.bundleID.isEmpty { bundleIDByName[u.appName.lowercased()] = u.bundleID }
             }
+        }
+
+        // Build name→icon map from installed apps (covers apps not used today)
+        let installedByName: [String: AppInfo] = Dictionary(
+            AppScanner.shared.installedApps().map { ($0.name.lowercased(), $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        func iconForApp(name: String, bundleID: String) -> NSImage? {
+            if !bundleID.isEmpty,
+               let url = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: bundleID).first {
+                return NSWorkspace.shared.icon(forFile: url.path)
+            }
+            if let info = installedByName[name.lowercased()] {
+                return NSWorkspace.shared.icon(forFile: info.bundlePath)
+            }
+            return nil
         }
 
         // Config apps — exclude this app
         for appName in config.blockedApps where appName.caseInsensitiveCompare(selfName) != .orderedSame {
             let dur = durationByName[appName.lowercased()] ?? 0
+            let bid = bundleIDByName[appName.lowercased()] ?? ""
             result.append(BlockItem(
                 displayName: appName, blockingName: appName,
                 isApp: true, isFromConfig: true,
-                todayDuration: dur, category: .other
+                todayDuration: dur, category: .other,
+                icon: iconForApp(name: appName, bundleID: bid)
             ))
         }
 
@@ -246,7 +263,8 @@ struct BlockSetupView: View {
             result.append(BlockItem(
                 displayName: domain, blockingName: domain,
                 isApp: false, isFromConfig: true,
-                todayDuration: dur, category: config.category(for: domain)
+                todayDuration: dur, category: config.category(for: domain),
+                icon: nil
             ))
         }
 
@@ -267,14 +285,16 @@ struct BlockSetupView: View {
                 result.append(BlockItem(
                     displayName: domain, blockingName: domain,
                     isApp: false, isFromConfig: false,
-                    todayDuration: usage.duration, category: cat
+                    todayDuration: usage.duration, category: cat,
+                    icon: nil
                 ))
             } else {
                 guard !configAppNamesLower.contains(usage.appName.lowercased()) else { continue }
                 result.append(BlockItem(
                     displayName: usage.appName, blockingName: usage.appName,
                     isApp: true, isFromConfig: false,
-                    todayDuration: usage.duration, category: cat
+                    todayDuration: usage.duration, category: cat,
+                    icon: iconForApp(name: usage.appName, bundleID: usage.bundleID)
                 ))
             }
         }
@@ -293,6 +313,7 @@ private struct BlockItem: Identifiable {
     let isFromConfig: Bool
     let todayDuration: TimeInterval
     let category: AppCategory
+    let icon: NSImage?
 
     var id: String { blockingName + (isApp ? ":app" : ":web") }
 }

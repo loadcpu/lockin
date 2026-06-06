@@ -171,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item("Dashboard",       action: #selector(openDashboard), key: "d"))
             menu.addItem(item("Screen Time…",    action: #selector(openStats),     key: "t"))
             menu.addItem(item("Configure…",      action: #selector(openConfig),    key: ","))
-            menu.addItem(item("Start Blocking…", action: #selector(startBlocking), key: "s"))
+            menu.addItem(item("Start Blocking", action: #selector(startBlocking), key: "s"))
         }
 
         menu.addItem(.separator())
@@ -226,11 +226,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 onCancel: { NSApp.keyWindow?.performClose(nil) }
             ),
             title: "Start Focus Session",
-            size: NSSize(width: 480, height: 440),
+            size: NSSize(width: 560, height: 660),
             style: [.titled, .closable]
-        ) { win, hosting in
+        ) { _, hosting in
             hosting.autoresizingMask = [.width, .height]
-            win.setContentSize(hosting.fittingSize)
         }
         blockSetupWC?.showWindow(nil)
     }

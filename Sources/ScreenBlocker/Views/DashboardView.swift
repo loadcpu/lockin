@@ -90,7 +90,7 @@ struct DashboardView: View {
                 .foregroundColor(.green)
                 .font(.subheadline)
             Button(action: onStartBlocking) {
-                Text("Start Blocking…")
+                Text("Start Blocking")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
