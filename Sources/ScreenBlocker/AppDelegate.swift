@@ -38,7 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupStatusItem()
         startMainTimer()
         showDashboard()
-        maybePromptBrowserPermissions()
+        // Onboarding covers browser permission for new users
+        if UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+            maybePromptBrowserPermissions()
+        }
     }
 
     private func setupMainMenu() {

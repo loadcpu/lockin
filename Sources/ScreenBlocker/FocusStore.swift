@@ -53,6 +53,55 @@ final class FocusStore {
         }
     }
 
+    func currentStreak() -> Int {
+        let cal = Calendar.current
+        var streak = 0
+        var date = cal.startOfDay(for: Date())
+        if read(for: date) == 0 {
+            guard let prev = cal.date(byAdding: .day, value: -1, to: date) else { return 0 }
+            date = prev
+        }
+        while read(for: date) > 0 {
+            streak += 1
+            guard streak < 366, let prev = cal.date(byAdding: .day, value: -1, to: date) else { break }
+            date = prev
+        }
+        return streak
+    }
+
+    func longestStreak() -> Int {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: baseDir, includingPropertiesForKeys: nil
+        ) else { return 0 }
+        let cal = Calendar.current
+        let dates: [Date] = files
+            .compactMap { url -> Date? in
+                let name = url.deletingPathExtension().lastPathComponent
+                guard let d = fmt.date(from: name), read(for: d) > 0 else { return nil }
+                return cal.startOfDay(for: d)
+            }
+            .sorted()
+        guard !dates.isEmpty else { return 0 }
+        var longest = 1, current = 1
+        for i in 1..<dates.count {
+            let diff = cal.dateComponents([.day], from: dates[i-1], to: dates[i]).day ?? 0
+            current = diff == 1 ? current + 1 : 1
+            longest = max(longest, current)
+        }
+        return longest
+    }
+
+    func focusData(forLastDays days: Int) -> [Date: TimeInterval] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        var result: [Date: TimeInterval] = [:]
+        for i in 0..<days {
+            guard let d = cal.date(byAdding: .day, value: -i, to: today) else { continue }
+            result[d] = read(for: d)
+        }
+        return result
+    }
+
     private func read(for date: Date) -> TimeInterval {
         let url = baseDir.appendingPathComponent("\(fmt.string(from: date)).jsonl")
         guard let content = try? String(contentsOf: url, encoding: .utf8) else { return 0 }

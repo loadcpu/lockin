@@ -4,8 +4,8 @@ import AppKit
 enum HelperInstaller {
     private static let helperPath   = "/usr/local/bin/screenblocker-hosts"
     private static let sudoersPath  = "/etc/sudoers.d/screenblocker"
-    private static let versionTag   = "# sb-version v5"
-    private static let defaultsKey  = "helperInstalled_v5"
+    private static let versionTag   = "# sb-version v6"
+    private static let defaultsKey  = "helperInstalled_v6"
     private static let agentLabel   = "com.local.screenblocker"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
@@ -144,7 +144,7 @@ enum HelperInstaller {
 
     private static let helperScriptContent: String = #"""
 #!/bin/bash
-# sb-version v5
+# sb-version v6
 ACTION="$1"
 TEMPFILE="$2"
 ANCHOR="com.apple/screenblocker"
@@ -165,7 +165,7 @@ if [ "$ACTION" = "apply" ]; then
 
         # Source 2: lsof — exact IPs browsers have live connections to right now
         lsof -i tcp:443 -i tcp:80 -n -P 2>/dev/null | \
-            awk '/ESTABLISHED/ && ($1 ~ /Safari|Chrome|Arc|Brave|firefox|msedge|Edge/) {
+            awk '/ESTABLISHED/ && ($1 ~ /Safari|Google|Chrome|Arc|Brave|firefox|msedge|Edge|Opera/) {
                 split($9, a, "->")
                 split(a[2], b, ":")
                 ip = b[1]; gsub(/[\[\]]/, "", ip)
@@ -185,6 +185,7 @@ if [ "$ACTION" = "apply" ]; then
     if [ -n "$DOMAINS" ]; then
         for domain in $DOMAINS; do
             host -t A    "$domain" 8.8.8.8 2>/dev/null | awk '/has address/{print $4}'      >> "$TMPIPS" &
+            host -t A    "$domain" 1.1.1.1 2>/dev/null | awk '/has address/{print $4}'      >> "$TMPIPS" &
             host -t AAAA "$domain" 8.8.8.8 2>/dev/null | awk '/has IPv6 address/{print $5}' >> "$TMPIPS" &
         done
         wait

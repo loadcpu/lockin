@@ -8,8 +8,9 @@ struct DashboardView: View {
     let onConfigure: () -> Void
     let onViewStats: () -> Void
 
-    @State private var categorySegments: [(Color, Double)] = []
     @State private var focusToday: TimeInterval = 0
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var showOnboarding = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,40 +24,22 @@ struct DashboardView: View {
             bottomBar
         }
         .frame(width: 300)
-        .onAppear { refreshStats() }
+        .onAppear {
+            refreshStats()
+            if !hasCompletedOnboarding { showOnboarding = true }
+        }
         .onChange(of: store.todayTotal) { _ in refreshStats() }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView {
+                hasCompletedOnboarding = true
+                showOnboarding = false
+                UserDefaults.standard.set(true, forKey: "hasPromptedBrowserPermissions")
+            }
+        }
     }
 
     private func refreshStats() {
         focusToday = FocusStore.shared.focusTimeToday()
-
-        let total = store.todayTotal
-        guard total > 0 else { categorySegments = []; return }
-
-        let breakdown = ActivityStore.shared
-            .categoryBreakdown(forDays: 1) { service.config.category(for: $0) }
-            .filter { $0.category != .system && $0.category != .other }
-
-        var productive: TimeInterval = 0
-        var distracting: TimeInterval = 0
-        var neutral: TimeInterval = 0
-        for u in breakdown {
-            if u.category.isProductive { productive += u.duration }
-            else if u.category.isDistracting { distracting += u.duration }
-            else { neutral += u.duration }
-        }
-
-        let sum = productive + distracting + neutral
-        guard sum > 0 else { categorySegments = []; return }
-
-        let green = Color(red: 0.20, green: 0.78, blue: 0.35)
-        let red   = Color(red: 0.96, green: 0.26, blue: 0.21)
-        let gray  = Color(red: 0.65, green: 0.65, blue: 0.70)
-        var segs: [(Color, Double)] = []
-        if productive  > 0 { segs.append((green, productive  / sum)) }
-        if distracting > 0 { segs.append((red,   distracting / sum)) }
-        if neutral     > 0 { segs.append((gray,  neutral     / sum)) }
-        categorySegments = segs
     }
 
     // MARK: - Sections
@@ -132,31 +115,26 @@ struct DashboardView: View {
                     .foregroundColor(.blue)
             }
 
-            HStack(alignment: .bottom, spacing: 6) {
-                Text(store.todayTotal.formattedDuration)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                Text("screen time")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.bottom, 3)
-                Spacer()
-            }
-
             if focusToday > 0 {
-                HStack(spacing: 6) {
+                HStack(alignment: .bottom, spacing: 6) {
                     Text(focusToday.formattedDuration)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(Color(red: 0.20, green: 0.78, blue: 0.35))
                     Text("focus time")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 3)
+                    Spacer()
+                }
+            } else {
+                HStack {
+                    Text("No focus sessions yet today")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
                 }
             }
 
-            if store.todayTotal > 0 {
-                CategoryBar(segments: categorySegments)
-            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

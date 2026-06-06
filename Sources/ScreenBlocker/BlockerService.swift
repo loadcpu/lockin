@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Combine
+import UserNotifications
 
 final class BlockerService: ObservableObject {
     static let shared = BlockerService()
@@ -92,8 +93,10 @@ final class BlockerService: ObservableObject {
     // MARK: - Private
 
     private func endSession() {
+        var focusDuration: TimeInterval = 0
         if let s = session {
-            FocusStore.shared.record(duration: s.endTime.timeIntervalSince(s.startTime))
+            focusDuration = s.endTime.timeIntervalSince(s.startTime)
+            FocusStore.shared.record(duration: focusDuration)
         }
         isBlocking = false
         remainingSeconds = 0
@@ -102,6 +105,24 @@ final class BlockerService: ObservableObject {
         BlockSession.clear()
         stopMonitoring()
         HostsManager.removeBlocks()
+        if focusDuration > 0 {
+            fireSessionCompleteNotification(duration: focusDuration)
+        }
+    }
+
+    private func fireSessionCompleteNotification(duration: TimeInterval) {
+        let mins = Int(duration / 60)
+        let content = UNMutableNotificationContent()
+        content.title = "Focus session complete"
+        content.body = mins > 0 ? "\(mins)m focused." : "Session ended."
+        content.sound = .default
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(
+                identifier: "session-complete-\(Date().timeIntervalSinceReferenceDate)",
+                content: content,
+                trigger: nil
+            )
+        )
     }
 
     private func startMonitoring() {
@@ -147,6 +168,8 @@ final class BlockerService: ObservableObject {
         let isSafari: Bool
     }
 
+    var knownBrowserBundleIDs: [String] { knownBrowsers.map(\.bundleID) }
+
     private let knownBrowsers: [Browser] = [
         Browser(name: "Safari",         bundleID: "com.apple.Safari",              isSafari: true),
         Browser(name: "Google Chrome",  bundleID: "com.google.Chrome",             isSafari: false),
@@ -185,13 +208,11 @@ final class BlockerService: ObservableObject {
     // MARK: - Tab reload (session start)
 
     private func reloadBrowserTabs() {
-        let primed = primedBrowserIDs
-        // Skip entirely if no browsers have been primed — avoids any surprise TCC dialogs
-        // appearing mid-session. Users prime browsers once via onboarding or Config.
-        guard !primed.isEmpty else { return }
-
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
-            for b in self.knownBrowsers where primed.contains(b.bundleID) {
+            for b in self.knownBrowsers {
+                guard NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).first != nil else { continue }
+                // TCC silently rejects browsers the user previously denied — no dialog appears.
+                // For never-asked browsers, macOS shows the permission dialog in context here.
                 self.reloadTabs(in: b)
             }
         }

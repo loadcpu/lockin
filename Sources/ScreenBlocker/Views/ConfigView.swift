@@ -187,11 +187,34 @@ struct ConfigView: View {
     private func grantBrowserPermissions() {
         let alert = NSAlert()
         alert.messageText = "Grant Browser Permissions"
-        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt."
+        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt.\n\nIf you previously clicked Don't Allow, open System Settings → Privacy & Security → Automation and enable Screen Blocker there."
         alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        BlockerService.shared.primeBrowserPermissions()
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            BlockerService.shared.primeBrowserPermissions {
+                self.checkForDeniedBrowsers()
+            }
+        } else if response == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+        }
+    }
+
+    private func checkForDeniedBrowsers() {
+        let runningUnprimed = BlockerService.shared.knownBrowserBundleIDs.filter { bid in
+            NSRunningApplication.runningApplications(withBundleIdentifier: bid).first != nil &&
+            !BlockerService.shared.primedBrowserIDs.contains(bid)
+        }
+        guard !runningUnprimed.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = "Permission Not Granted"
+        alert.informativeText = "One or more browsers denied permission. To fix this, open System Settings → Privacy & Security → Automation and enable Screen Blocker for each browser."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "OK")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+        }
     }
 
     private func addWebsite() {

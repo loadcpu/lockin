@@ -14,6 +14,8 @@ struct StatsView: View {
     @State private var categories: [ActivityStore.CategoryUsage] = []
     @State private var todayEvents: [ActivityEvent] = []
     @State private var focusTotal: TimeInterval = 0
+    @State private var currentStreak = 0
+    @State private var longestStreak = 0
 
     enum TimeRange: String, CaseIterable {
         case today = "Today"
@@ -35,6 +37,7 @@ struct StatsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         summaryCard
+                        focusCalendarSection
                         if range == .today { timelineSection }
                         categorySection
                         topAppsSection
@@ -124,10 +127,36 @@ struct StatsView: View {
                 Divider()
                 productivityRow
             }
+            if currentStreak > 0 || longestStreak > 0 {
+                Divider()
+                streakRow
+            }
         }
         .padding(20)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
+    }
+
+    private var streakRow: some View {
+        HStack(spacing: 24) {
+            streakChip("CURRENT STREAK", value: currentStreak, color: .orange)
+            if longestStreak > currentStreak {
+                streakChip("BEST STREAK", value: longestStreak, color: Color(NSColor.secondaryLabelColor))
+            }
+            Spacer()
+        }
+    }
+
+    private func streakChip(_ label: String, value: Int, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2.bold())
+                .foregroundColor(.secondary)
+                .tracking(0.4)
+            Text("\(value) day\(value == 1 ? "" : "s")")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(color)
+        }
     }
 
     private var productivityRow: some View {
@@ -160,6 +189,17 @@ struct StatsView: View {
         case .week:  return "LAST 7 DAYS"
         case .month: return "LAST 30 DAYS"
         }
+    }
+
+    // MARK: - Focus calendar
+
+    private var focusCalendarSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            FocusCalendarView()
+        }
+        .padding(20)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(12)
     }
 
     // MARK: - Daily timeline
@@ -275,6 +315,14 @@ struct StatsView: View {
         categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
         focusTotal = FocusStore.shared.focusTotal(forDays: d)
         if range == .today { todayEvents = store.events(for: Date()) }
+        DispatchQueue.global(qos: .utility).async {
+            let cs = FocusStore.shared.currentStreak()
+            let ls = FocusStore.shared.longestStreak()
+            DispatchQueue.main.async {
+                currentStreak = cs
+                longestStreak = ls
+            }
+        }
     }
 }
 
