@@ -26,14 +26,12 @@ final class LimitsChecker {
         let config = BlockerService.shared.config
         guard !config.categoryLimits.isEmpty else { return }
 
-        let events = ActivityStore.shared.events(for: Date())
+        let breakdown = ActivityStore.shared.categoryBreakdown(forDays: 1) { config.category(for: $0) }
 
         for (rawCategory, limitMinutes) in config.categoryLimits {
             guard limitMinutes > 0, let category = AppCategory(rawValue: rawCategory) else { continue }
 
-            let used = events
-                .filter { config.category(for: ActivityStore.eventKey($0)) == category }
-                .reduce(0) { $0 + $1.duration }
+            let used = breakdown.first { $0.category == category }?.duration ?? 0
 
             let threshold = TimeInterval(limitMinutes * 60)
             guard used >= threshold else { continue }

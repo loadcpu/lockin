@@ -214,16 +214,25 @@ struct BlockSetupView: View {
     private func loadItems() {
         let config = service.config
         let store = ActivityStore.shared
-        let todayEvents = store.events(for: Date())
         let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Screen Blocker"
         let selfBundleID = Bundle.main.bundleIdentifier ?? ""
         var result: [BlockItem] = []
 
+        // Single dual-path query (works with Screen Time DB and custom JSONL)
+        let topUsage = store.topApps(forDays: 1, limit: 50)
+        var durationByName: [String: TimeInterval] = [:]
+        var durationByDomain: [String: TimeInterval] = [:]
+        for u in topUsage {
+            if let domain = u.domain {
+                durationByDomain[domain, default: 0] += u.duration
+            } else {
+                durationByName[u.appName.lowercased(), default: 0] += u.duration
+            }
+        }
+
         // Config apps — exclude this app
         for appName in config.blockedApps where appName.caseInsensitiveCompare(selfName) != .orderedSame {
-            let dur = todayEvents
-                .filter { $0.appName.caseInsensitiveCompare(appName) == .orderedSame }
-                .reduce(0) { $0 + $1.duration }
+            let dur = durationByName[appName.lowercased()] ?? 0
             result.append(BlockItem(
                 displayName: appName, blockingName: appName,
                 isApp: true, isFromConfig: true,
@@ -233,7 +242,7 @@ struct BlockSetupView: View {
 
         // Config websites
         for domain in config.blockedWebsites {
-            let dur = todayEvents.filter { $0.domain == domain }.reduce(0) { $0 + $1.duration }
+            let dur = durationByDomain[domain] ?? 0
             result.append(BlockItem(
                 displayName: domain, blockingName: domain,
                 isApp: false, isFromConfig: true,
@@ -241,8 +250,9 @@ struct BlockSetupView: View {
             ))
         }
 
-        // Suggestions from today's usage — exclude this app
-        let topUsage = store.topApps(forDays: 1, limit: 20)
+        // Suggestions from today's usage — exclude this app and already-configured items
+        let configAppNamesLower = Set(config.blockedApps.map { $0.lowercased() })
+        let configWebsites = Set(config.blockedWebsites)
         for usage in topUsage where usage.duration >= 60
             && usage.bundleID != selfBundleID
             && usage.appName.caseInsensitiveCompare(selfName) != .orderedSame {
@@ -253,17 +263,16 @@ struct BlockSetupView: View {
             guard cat == .entertainment || cat == .social else { continue }
 
             if let domain = usage.domain {
-                guard !config.blockedWebsites.contains(domain) else { continue }
+                guard !configWebsites.contains(domain) else { continue }
                 result.append(BlockItem(
                     displayName: domain, blockingName: domain,
                     isApp: false, isFromConfig: false,
                     todayDuration: usage.duration, category: cat
                 ))
             } else {
-                let name = usage.appName
-                guard !config.blockedApps.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) else { continue }
+                guard !configAppNamesLower.contains(usage.appName.lowercased()) else { continue }
                 result.append(BlockItem(
-                    displayName: name, blockingName: name,
+                    displayName: usage.appName, blockingName: usage.appName,
                     isApp: true, isFromConfig: false,
                     todayDuration: usage.duration, category: cat
                 ))
@@ -271,7 +280,6 @@ struct BlockSetupView: View {
         }
 
         items = result
-        // Pre-check everything
         checked = Set(result.map(\.id))
     }
 }

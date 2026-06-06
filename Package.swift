@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "ScreenBlocker",
-            path: "Sources/ScreenBlocker"
+            path: "Sources/ScreenBlocker",
+            linkerSettings: [.linkedLibrary("sqlite3")]
         ),
         .executableTarget(
             name: "ScreenBlockerDNS",
