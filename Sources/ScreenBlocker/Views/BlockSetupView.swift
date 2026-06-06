@@ -12,7 +12,7 @@ struct BlockSetupView: View {
     @State private var checked: Set<String> = []
 
     private let durationOptions: [(Int, String)] = [
-        (25, "25m"), (60, "1h"), (120, "2h"), (240, "4h"), (480, "8h")
+        (25, "25m"), (60, "1h"), (120, "2h")
     ]
 
     private var isCustomSelected: Bool {
@@ -46,6 +46,9 @@ struct BlockSetupView: View {
                 }
                 .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
             }
+            Text("custom")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
             HStack(spacing: 3) {
                 TextField("", text: $customText)
                     .textFieldStyle(.plain)
@@ -57,6 +60,7 @@ struct BlockSetupView: View {
                     .background(isCustomSelected ? Color.blue : Color(NSColor.controlBackgroundColor))
                     .foregroundColor(isCustomSelected ? .white : .primary)
                     .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1))
                     .onChange(of: customText) { val in
                         let digits = val.filter(\.isNumber)
                         if digits != val { customText = digits }
@@ -339,6 +343,7 @@ private struct DurationButtonStyle: ButtonStyle {
             .background(selected ? Color.blue : Color(NSColor.controlBackgroundColor))
             .foregroundColor(selected ? .white : .primary)
             .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1))
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

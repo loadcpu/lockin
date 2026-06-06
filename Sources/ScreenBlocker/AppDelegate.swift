@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 private final class HostingWindowController: NSWindowController {
     override func showWindow(_ sender: Any?) {
@@ -9,7 +10,7 @@ private final class HostingWindowController: NSWindowController {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
     private var statusItem: NSStatusItem!
     private var mainTimer: Timer?
     private var configWC: HostingWindowController?
@@ -28,6 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         NSApp.setActivationPolicy(.regular)
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         setupMainMenu()
         installSigTermHandler()
         BlockerService.shared.loadState()
@@ -311,5 +314,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configure?(win, hosting)
         win.center()
         return HostingWindowController(window: win)
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }
