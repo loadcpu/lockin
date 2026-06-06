@@ -46,9 +46,6 @@ struct BlockSetupView: View {
                 }
                 .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
             }
-            Text("custom")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
             HStack(spacing: 3) {
                 TextField("", text: $customText)
                     .textFieldStyle(.plain)
@@ -167,12 +164,12 @@ struct BlockSetupView: View {
             HStack(spacing: 6) {
                 Text(item.category.rawValue)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(item.category.color)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Color(NSColor.controlBackgroundColor))
+                    .background(item.category.color.opacity(0.10))
                     .cornerRadius(5)
-                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
+                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(item.category.color.opacity(0.30), lineWidth: 1.0))
 
                 if item.todayDuration >= 60 {
                     Text(item.todayDuration.formattedDuration)
@@ -201,7 +198,7 @@ struct BlockSetupView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.secondary)
                 Spacer()
-                Button("Start \(selectedMinutesLabel) Session") {
+                Button("Start") {
                     onStart(selectedMinutes, checkedApps, checkedSites)
                 }
                 .buttonStyle(.borderedProminent)
@@ -219,8 +216,8 @@ struct BlockSetupView: View {
 
     // MARK: - Data loading
 
-    private var configItems: [BlockItem] { items.filter(\.isFromConfig) }
-    private var suggestedItems: [BlockItem] { items.filter { !$0.isFromConfig } }
+    private var configItems: [BlockItem] { items.filter(\.isFromConfig).sorted { $0.todayDuration > $1.todayDuration } }
+    private var suggestedItems: [BlockItem] { items.filter { !$0.isFromConfig }.sorted { $0.todayDuration > $1.todayDuration } }
 
     private func loadItems() {
         let config = service.config
