@@ -9,6 +9,7 @@ struct DashboardView: View {
     let onViewStats: () -> Void
 
     @State private var focusToday: TimeInterval = 0
+    @State private var streak: Int = 0
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var showOnboarding = false
 
@@ -40,6 +41,7 @@ struct DashboardView: View {
 
     private func refreshStats() {
         focusToday = FocusStore.shared.focusTimeToday()
+        streak = FocusStore.shared.currentStreak()
     }
 
     // MARK: - Sections
@@ -124,6 +126,12 @@ struct DashboardView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.bottom, 3)
+                    if streak > 1 {
+                        Text("🔥 \(streak)d")
+                            .font(.caption.bold())
+                            .foregroundColor(.orange)
+                            .padding(.bottom, 3)
+                    }
                     Spacer()
                 }
             } else {

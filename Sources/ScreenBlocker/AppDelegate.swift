@@ -223,7 +223,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self?.blockSetupWC = nil
                     self?.refreshButton()
                 },
-                onCancel: { NSApp.keyWindow?.performClose(nil) }
+                onCancel: { [weak self] in
+                    self?.blockSetupWC?.close()
+                    self?.blockSetupWC = nil
+                }
             ),
             title: "Start Focus Session",
             size: NSSize(width: 560, height: 660),

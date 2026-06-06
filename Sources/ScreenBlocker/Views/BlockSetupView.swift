@@ -26,26 +26,6 @@ struct BlockSetupView: View {
         .onAppear(perform: loadItems)
     }
 
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "lock.shield.fill")
-                .font(.title2)
-                .foregroundColor(.blue)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Start Focus Session")
-                    .font(.headline)
-                Text("Choose duration and confirm what to block")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-    }
-
     // MARK: - Duration
 
     private var durationRow: some View {

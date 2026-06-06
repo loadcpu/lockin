@@ -30,11 +30,11 @@ final class ScreenTimeReader {
     }
 
     var isAvailable: Bool {
-        if cachedAvailable == true { return true }
+        if let cached = cachedAvailable { return cached }
         var db: OpaquePointer?
         let ok = sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK
         sqlite3_close(db)
-        if ok { cachedAvailable = true }
+        cachedAvailable = ok
         return ok
     }
 

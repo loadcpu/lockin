@@ -26,7 +26,7 @@ final class AppScanner {
             guard let items = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil) else { continue }
             for item in items where item.pathExtension == "app" {
                 let name = item.deletingPathExtension().lastPathComponent
-                guard name != "ScreenBlocker" else { continue }
+                guard name != "Screen Blocker" else { continue }
                 apps.append(AppInfo(id: item.path, name: name, bundlePath: item.path))
             }
         }

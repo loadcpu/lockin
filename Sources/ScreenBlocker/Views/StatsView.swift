@@ -13,6 +13,8 @@ struct StatsView: View {
     @State private var topApps: [ActivityStore.AppUsage] = []
     @State private var categories: [ActivityStore.CategoryUsage] = []
     @State private var focusTotal: TimeInterval = 0
+    @State private var currentStreak: Int = 0
+    @State private var longestStreak: Int = 0
 
     enum TimeRange: String, CaseIterable {
         case today = "Today"
@@ -149,11 +151,34 @@ struct StatsView: View {
             if productiveTime > 0 || distractingTime > 0 {
                 productivityRow
             }
+
+            if currentStreak > 0 || longestStreak > 0 {
+                streakRow
+            }
         }
         .padding(16)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
+    }
+
+    private var streakRow: some View {
+        HStack(spacing: 16) {
+            if currentStreak > 0 {
+                streakChip("current streak", value: currentStreak, color: .orange, emoji: "🔥")
+            }
+            if longestStreak > 0 {
+                streakChip("best streak", value: longestStreak, color: Color(red: 0.20, green: 0.78, blue: 0.35), emoji: "⭐")
+            }
+            Spacer()
+        }
+    }
+
+    private func streakChip(_ label: String, value: Int, color: Color, emoji: String) -> some View {
+        HStack(spacing: 5) {
+            Text("\(emoji) \(value)d").font(.caption.bold()).foregroundColor(color)
+            Text(label).font(.caption).foregroundColor(.secondary)
+        }
     }
 
     private var productivityRow: some View {
@@ -309,6 +334,8 @@ struct StatsView: View {
         categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
             .sorted { $0.duration > $1.duration }
         focusTotal = FocusStore.shared.focusTotal(forDays: d)
+        currentStreak = FocusStore.shared.currentStreak()
+        longestStreak = FocusStore.shared.longestStreak()
     }
 }
 

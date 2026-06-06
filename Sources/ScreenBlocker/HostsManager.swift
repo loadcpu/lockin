@@ -6,8 +6,6 @@ struct HostsManager {
     private static let beginMark  = "# ScreenBlocker BEGIN"
     private static let endMark    = "# ScreenBlocker END"
 
-    static func cleanupOnLaunch() {}
-
     @discardableResult
     static func applyBlocks(domains: [String]) -> Bool {
         guard !domains.isEmpty else { return true }
