@@ -261,10 +261,11 @@ struct BlockSetupView: View {
         for appName in config.blockedApps where appName.caseInsensitiveCompare(selfName) != .orderedSame {
             let dur = durationByName[appName.lowercased()] ?? 0
             let bid = bundleIDByName[appName.lowercased()] ?? ""
+            let cat = bid.isEmpty ? config.category(for: appName) : config.category(for: bid)
             result.append(BlockItem(
                 displayName: appName, blockingName: appName,
                 isApp: true, isFromConfig: true,
-                todayDuration: dur, category: .other,
+                todayDuration: dur, category: cat,
                 icon: iconForApp(name: appName, bundleID: bid)
             ))
         }
