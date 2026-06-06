@@ -7,12 +7,17 @@ struct BlockSetupView: View {
 
     @ObservedObject private var service = BlockerService.shared
     @State private var selectedMinutes = 60
+    @State private var customText = "60"
     @State private var items: [BlockItem] = []
     @State private var checked: Set<String> = []
 
     private let durationOptions: [(Int, String)] = [
         (25, "25m"), (60, "1h"), (120, "2h"), (240, "4h"), (480, "8h")
     ]
+
+    private var isCustomSelected: Bool {
+        !durationOptions.contains { $0.0 == selectedMinutes }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,8 +40,33 @@ struct BlockSetupView: View {
                 .foregroundColor(.secondary)
             Spacer()
             ForEach(durationOptions, id: \.0) { mins, label in
-                Button(label) { selectedMinutes = mins }
-                    .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
+                Button(label) {
+                    selectedMinutes = mins
+                    customText = "\(mins)"
+                }
+                .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
+            }
+            HStack(spacing: 3) {
+                TextField("", text: $customText)
+                    .textFieldStyle(.plain)
+                    .font(.subheadline.monospacedDigit())
+                    .multilineTextAlignment(.center)
+                    .frame(width: 38)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 6)
+                    .background(isCustomSelected ? Color.blue : Color(NSColor.controlBackgroundColor))
+                    .foregroundColor(isCustomSelected ? .white : .primary)
+                    .cornerRadius(8)
+                    .onChange(of: customText) { val in
+                        let digits = val.filter(\.isNumber)
+                        if digits != val { customText = digits }
+                        if let m = Int(digits), m > 0 {
+                            selectedMinutes = min(m, 1440)
+                        }
+                    }
+                Text("m")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 20)
