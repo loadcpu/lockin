@@ -128,7 +128,7 @@ struct FocusCalendarView: View {
             Text("Less").font(.system(size: 9)).foregroundColor(.secondary)
             ForEach(Array([0.0, 0.25, 0.5, 0.75, 1.0].enumerated()), id: \.0) { _, t in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(t == 0 ? Color.white.opacity(0.08) : green.opacity(0.15 + t * 0.85))
+                    .fill(t == 0 ? Color.gray.opacity(0.12) : green.opacity(0.15 + t * 0.85))
                     .frame(width: 10, height: 10)
             }
             Text("More").font(.system(size: 9)).foregroundColor(.secondary)
@@ -170,7 +170,7 @@ struct FocusCalendarView: View {
     // MARK: - Helpers
 
     private func cellColor(_ duration: TimeInterval) -> Color {
-        guard duration > 0 else { return Color.white.opacity(0.08) }
+        guard duration > 0 else { return Color.gray.opacity(0.12) }
         let t = min(1.0, duration / 7200)  // 2h = full intensity
         return green.opacity(0.15 + t * 0.85)
     }

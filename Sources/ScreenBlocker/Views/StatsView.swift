@@ -135,6 +135,7 @@ struct StatsView: View {
         .padding(20)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
     }
 
     private var productivityRow: some View {
@@ -177,6 +178,7 @@ struct StatsView: View {
             .padding(20)
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
     }
 
     // MARK: - Category section
@@ -225,6 +227,7 @@ struct StatsView: View {
         .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
     }
 
     private func pct(_ duration: TimeInterval) -> String {
@@ -248,6 +251,7 @@ struct StatsView: View {
             }
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(10)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
         }
     }
 
@@ -365,6 +369,7 @@ private struct AppRow: View {
             .padding(.horizontal, 7).padding(.vertical, 4)
             .background(Color(NSColor.windowBackgroundColor))
             .cornerRadius(6)
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()

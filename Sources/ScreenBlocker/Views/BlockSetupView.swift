@@ -158,6 +158,7 @@ struct BlockSetupView: View {
                     .padding(.vertical, 3)
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(5)
+                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
 
                 if item.todayDuration >= 60 {
                     Text(item.todayDuration.formattedDuration)
