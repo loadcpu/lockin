@@ -51,6 +51,9 @@ cat > "$STAGING/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
+echo "Signing…"
+codesign --force --deep --sign - "$STAGING"
+
 echo ""
 echo "✓ Build ready at $STAGING"
 echo "  Run: ./install.sh"
