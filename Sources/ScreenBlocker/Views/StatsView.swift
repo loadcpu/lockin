@@ -128,6 +128,24 @@ struct StatsView: View {
                 }
             }
 
+            if focusTotal > 0 && totalDuration > 0 {
+                let ratio = min(1.0, focusTotal / totalDuration)
+                VStack(alignment: .leading, spacing: 4) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2).fill(Color(NSColor.separatorColor))
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(green.opacity(0.7))
+                                .frame(width: max(4, geo.size.width * ratio))
+                        }
+                    }
+                    .frame(height: 4)
+                    Text("\(Int((ratio * 100).rounded()))% of screen time focused")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             if productiveTime > 0 || distractingTime > 0 {
                 productivityRow
             }
@@ -190,6 +208,12 @@ struct StatsView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(categories) { usage in categoryLegendRow(usage) }
             }
+            if let other = categories.first(where: { $0.category == .other }),
+               totalDuration > 0, other.duration / totalDuration > 0.10 {
+                Text("Use the ∨ menu on any app row below to recategorize")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 
@@ -211,22 +235,26 @@ struct StatsView: View {
     }
 
     private func categoryLegendRow(_ usage: ActivityStore.CategoryUsage) -> some View {
-        HStack(spacing: 8) {
-            Circle().fill(usage.category.color).frame(width: 10, height: 10)
-            Text(usage.category.rawValue).font(.subheadline).lineLimit(1)
-            Spacer()
-            Text(usage.duration.formattedDuration)
-                .font(.subheadline.monospacedDigit())
-                .foregroundColor(.secondary)
-            Text(pct(usage.duration))
-                .font(.caption.monospacedDigit())
-                .foregroundColor(.secondary)
-                .frame(width: 36, alignment: .trailing)
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(usage.category.color)
+                .frame(width: 3)
+            HStack(spacing: 8) {
+                Text(usage.category.rawValue).font(.subheadline).lineLimit(1)
+                Spacer()
+                Text(usage.duration.formattedDuration)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundColor(.secondary)
+                Text(pct(usage.duration))
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.secondary)
+                    .frame(width: 36, alignment: .trailing)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
     }
 
@@ -240,13 +268,16 @@ struct StatsView: View {
     private var topAppsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionLabel("TOP APPS & SITES")
-            VStack(spacing: 2) {
-                ForEach(topApps) { usage in
+            VStack(spacing: 0) {
+                ForEach(Array(topApps.enumerated()), id: \.0) { i, usage in
                     AppRow(
                         usage: usage,
                         totalDuration: totalDuration,
                         category: categoryBinding(for: usage)
                     )
+                    if i < topApps.count - 1 {
+                        Divider().padding(.leading, 52)
+                    }
                 }
             }
             .background(Color(NSColor.controlBackgroundColor))
@@ -296,11 +327,12 @@ struct CategoryBar: View {
             HStack(spacing: 2) {
                 ForEach(Array(segments.enumerated()), id: \.0) { _, seg in
                     let w = max(4, (geo.size.width - CGFloat(segments.count - 1) * 2) * seg.1)
-                    RoundedRectangle(cornerRadius: 2).fill(seg.0).frame(width: w)
+                    Rectangle().fill(seg.0).frame(width: w)
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 5))
         }
-        .frame(height: 6)
+        .frame(height: 10)
     }
 }
 
@@ -378,12 +410,12 @@ private struct AppRow: View {
     private var miniBar: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3).fill(Color(NSColor.separatorColor))
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: 4).fill(Color(NSColor.separatorColor))
+                RoundedRectangle(cornerRadius: 4)
                     .fill(category.color.opacity(0.75))
                     .frame(width: max(4, geo.size.width * fraction))
             }
         }
-        .frame(width: 70, height: 6)
+        .frame(width: 70, height: 8)
     }
 }
