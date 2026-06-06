@@ -199,7 +199,7 @@ struct BlockSetupView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button("Start") {
-                    onStart(selectedMinutes, checkedApps, checkedSites)
+                    confirmAndStart()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(checkedTotal == 0)
@@ -207,6 +207,24 @@ struct BlockSetupView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
+        }
+    }
+
+    private func confirmAndStart() {
+        guard selectedMinutes > 120 else {
+            onStart(selectedMinutes, checkedApps, checkedSites)
+            return
+        }
+        let h = selectedMinutes / 60
+        let m = selectedMinutes % 60
+        let label = m == 0 ? "\(h)h" : "\(h)h \(m)m"
+        let alert = NSAlert()
+        alert.messageText = "Start a \(label) session?"
+        alert.informativeText = "This is a long session. Sessions cannot be cancelled once started."
+        alert.addButton(withTitle: "Start")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn {
+            onStart(selectedMinutes, checkedApps, checkedSites)
         }
     }
 
