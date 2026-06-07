@@ -1,11 +1,13 @@
 import SwiftUI
 import AppKit
+import UserNotifications
 
 struct OnboardingView: View {
     let onFinish: () -> Void
 
     @State private var step = 1
     @State private var appSearch = ""
+    @State private var notificationGranted = false
     @ObservedObject private var service = BlockerService.shared
 
     var body: some View {
@@ -17,8 +19,9 @@ struct OnboardingView: View {
             Group {
                 switch step {
                 case 1: step1
-                case 2: step2
-                case 3: step3
+                case 2: step2notifications
+                case 3: step3apps
+                case 4: step4browser
                 default: EmptyView()
                 }
             }
@@ -34,7 +37,7 @@ struct OnboardingView: View {
 
     private var progressDots: some View {
         HStack(spacing: 7) {
-            ForEach(1...3, id: \.self) { i in
+            ForEach(1...4, id: \.self) { i in
                 Circle()
                     .fill(i == step ? Color.blue : Color.secondary.opacity(0.3))
                     .frame(width: 6, height: 6)
@@ -65,9 +68,57 @@ struct OnboardingView: View {
         .padding(24)
     }
 
-    // MARK: - Step 2: Pick apps
+    // MARK: - Step 2: Notifications
 
-    private var step2: some View {
+    private var step2notifications: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "bell.badge.fill")
+                .font(.system(size: 54))
+                .foregroundColor(.blue)
+                .padding(.top, 16)
+
+            Text("Session notifications")
+                .font(.title3.bold())
+
+            Text("Screen Blocker sends one notification when your focus timer ends so you know when to take a break.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 28)
+
+            if notificationGranted {
+                Label("Notifications enabled", systemImage: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.subheadline)
+            } else {
+                Button("Enable Notifications") {
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                        DispatchQueue.main.async {
+                            notificationGranted = granted
+                            if !granted {
+                                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(24)
+        .onAppear {
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                DispatchQueue.main.async {
+                    notificationGranted = settings.authorizationStatus == .authorized
+                }
+            }
+        }
+    }
+
+    // MARK: - Step 3: Pick apps
+
+    private var step3apps: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Pick apps to block")
@@ -126,9 +177,9 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Step 3: Browser permission
+    // MARK: - Step 4: Browser permission
 
-    private var step3: some View {
+    private var step4browser: some View {
         VStack(spacing: 18) {
             Image(systemName: "globe")
                 .font(.system(size: 54))
@@ -164,7 +215,7 @@ struct OnboardingView: View {
                     .foregroundColor(.secondary)
             }
             Spacer()
-            if step < 3 {
+            if step < 4 {
                 Button("Next") { step += 1 }
                     .buttonStyle(.borderedProminent)
             } else {

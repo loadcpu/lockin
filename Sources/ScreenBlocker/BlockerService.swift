@@ -68,6 +68,10 @@ final class BlockerService: ObservableObject {
         isBlocking = true
         remainingSeconds = s.remainingSeconds
         blockedAppNames = Set(s.blockedApps.map { $0.lowercased() })
+        // Schedule the end notification now, while the app is stable.
+        // The system daemon holds it and fires it even after this process exits,
+        // avoiding the BlockSession.clear() → launchd SIGTERM → app-exit race.
+        scheduleSessionEndNotification(minutes: minutes)
         startMonitoring()
 
         let websitesToBlock = s.blockedWebsites
@@ -93,17 +97,11 @@ final class BlockerService: ObservableObject {
     // MARK: - Private
 
     private func endSession() {
-        var focusDuration: TimeInterval = 0
         if let s = session {
-            focusDuration = s.endTime.timeIntervalSince(s.startTime)
-            FocusStore.shared.record(duration: focusDuration)
+            FocusStore.shared.record(duration: s.endTime.timeIntervalSince(s.startTime))
         }
-        // Fire notification BEFORE BlockSession.clear() — deleting session.json
-        // triggers a launchd SIGTERM that terminates this process. Any async work
-        // queued after clear() may never run.
-        if focusDuration > 0 {
-            fireSessionCompleteNotification(duration: focusDuration)
-        }
+        // The session-end notification was pre-scheduled at startSession() and is
+        // held by the system daemon — no XPC call needed here during the SIGTERM race.
         isBlocking = false
         remainingSeconds = 0
         session = nil
@@ -113,23 +111,19 @@ final class BlockerService: ObservableObject {
         HostsManager.removeBlocks()
     }
 
-    private func fireSessionCompleteNotification(duration: TimeInterval) {
-        let mins = Int(duration / 60)
+    private func scheduleSessionEndNotification(minutes: Int) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["session-complete"])
         let content = UNMutableNotificationContent()
         content.title = "Focus session complete"
-        content.body = mins > 0 ? "\(mins)m focused." : "Session ended."
+        content.body = "\(minutes)m focused."
         content.sound = .default
-        // Use a 1s trigger so the request is registered with the system
-        // notification daemon before this process exits.
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let request = UNNotificationRequest(
-            identifier: "session-complete-\(Date().timeIntervalSinceReferenceDate)",
-            content: content,
-            trigger: trigger
-        )
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(minutes * 60), repeats: false)
+        let request = UNNotificationRequest(identifier: "session-complete", content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request) { error in
             if let error {
-                NSLog("ScreenBlocker: notification add failed: %@", error.localizedDescription)
+                NSLog("ScreenBlocker: notification schedule failed: %@", error.localizedDescription)
+            } else {
+                NSLog("ScreenBlocker: session-end notification scheduled for %dm", minutes)
             }
         }
     }

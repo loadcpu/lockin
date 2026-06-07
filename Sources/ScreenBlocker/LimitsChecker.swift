@@ -8,10 +8,6 @@ final class LimitsChecker {
     private init() {}
 
     func start() {
-        // Request notification permission once; silently ignored on subsequent launches
-        UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
-
         checkTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.check()
         }

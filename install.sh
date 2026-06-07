@@ -28,9 +28,9 @@ if [ -f Package.swift ]; then
     exit 0
 fi
 
-# ── End-user mode: download latest release DMG ──────────────────────────────
+# ── End-user mode: download latest release zip ──────────────────────────────
 REPO="loadcpu/screen-blocker"
-DMG_URL="https://github.com/$REPO/releases/latest/download/ScreenBlocker.dmg"
+ZIP_URL="https://github.com/$REPO/releases/latest/download/ScreenBlocker.zip"
 
 echo ""
 echo "${BOLD}Installing Screen Blocker...${RESET}"
@@ -45,23 +45,18 @@ TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 
 printf "  Downloading... "
-curl -fsSL "$DMG_URL" -o "$TMP/ScreenBlocker.dmg"
-echo "done"
-
-printf "  Mounting... "
-VOLUME=$(hdiutil attach "$TMP/ScreenBlocker.dmg" -nobrowse -noverify 2>/dev/null \
-  | awk -F'\t' '/\/Volumes/{print $NF}')
+curl -fsSL "$ZIP_URL" -o "$TMP/ScreenBlocker.zip"
 echo "done"
 
 printf "  Installing to /Applications... "
 [ -d "/Applications/$APP.app" ] && rm -rf "/Applications/$APP.app"
-cp -r "$VOLUME/$APP.app" /Applications/
-echo "done"
-
-hdiutil detach "$VOLUME" -quiet
+unzip -q "$TMP/ScreenBlocker.zip" -d /Applications/
+# Strip quarantine so Gatekeeper doesn't block the ad-hoc-signed binary
 xattr -cr "/Applications/$APP.app"
+echo "done"
 
 echo ""
 echo "${GREEN}  ✓ Screen Blocker installed!${RESET}"
-echo "  ${DIM}Open via Spotlight (⌘ Space → \"Screen Blocker\")${RESET}"
+echo "  ${DIM}Opening Screen Blocker...${RESET}"
+open "/Applications/$APP.app"
 echo ""

@@ -2,43 +2,34 @@
 set -e
 
 APP="Screen Blocker"
-DMG="ScreenBlocker.dmg"
-STAGING=$(mktemp -d)
+ZIP="ScreenBlocker.zip"
+BOLD='\033[1m'; GREEN='\033[0;32m'; RESET='\033[0m'
 
-echo "Building…"
+VERSION="${1:-}"
+if [ -z "$VERSION" ]; then
+    echo "Usage: ./release.sh <version>   e.g. ./release.sh 1.0.0"
+    exit 1
+fi
+
+echo "${BOLD}Building…${RESET}"
 ./build.sh
 
-echo "Staging DMG…"
-cp -r ".build/${APP}.app" "$STAGING/"
-ln -s /Applications "$STAGING/Applications"
+echo "${BOLD}Packaging zip…${RESET}"
+rm -f "$ZIP"
+# Zip just the .app — unzip -d /Applications/ extracts it directly
+(cd .build && zip -qr "../$ZIP" "${APP}.app")
 
-# Write a minimal install note alongside the app
-cat > "$STAGING/Install Notes.txt" << 'TXT'
-Drag Screen Blocker to Applications, then double-click to launch.
+SIZE=$(du -sh "$ZIP" | cut -f1)
+echo "  $ZIP ready ($SIZE)"
 
-On first use, the app will ask for your password once to install a
-helper that modifies /etc/hosts for website blocking. This is a
-one-time step.
-TXT
+echo "${BOLD}Creating GitHub release v${VERSION}…${RESET}"
+gh release create "v${VERSION}" "$ZIP" \
+    --title "v${VERSION}" \
+    --notes "Install with: \`curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | bash\`"
 
-echo "Signing…"
-codesign --sign - --force --deep --preserve-metadata=entitlements \
-    "$STAGING/${APP}.app" > /dev/null 2>&1
+rm -f "$ZIP"
 
-echo "Creating DMG…"
-rm -f "$DMG"
-hdiutil create \
-    -volname "$APP" \
-    -srcfolder "$STAGING" \
-    -ov \
-    -format UDZO \
-    -fs HFS+ \
-    -o "$DMG" \
-    > /dev/null
-
-rm -rf "$STAGING"
-
-SIZE=$(du -sh "$DMG" | cut -f1)
 echo ""
-echo "✓ $DMG ready ($SIZE)"
-echo "  Upload to GitHub Releases as a release asset."
+echo "${GREEN}✓ v${VERSION} published.${RESET}"
+echo "  Users can now install with:"
+echo "  curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | bash"

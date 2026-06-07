@@ -30,7 +30,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
         NSApp.setActivationPolicy(.regular)
         UNUserNotificationCenter.current().delegate = self
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         setupMainMenu()
         installSigTermHandler()
         BlockerService.shared.loadState()
@@ -41,8 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         setupStatusItem()
         startMainTimer()
         showDashboard()
-        // Onboarding covers browser permission for new users
+        // New users: onboarding handles notification permission with context.
+        // Returning users: request here and surface an alert if disabled.
         if UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+            checkNotificationAuthorization()
             maybePromptBrowserPermissions()
         }
     }
@@ -70,6 +71,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         }
         src.resume()
         sigTermSource = src
+    }
+
+    private func checkNotificationAuthorization() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard !granted else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showNotificationsDisabledAlert()
+            }
+        }
+    }
+
+    private func showNotificationsDisabledAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Notifications Are Disabled"
+        alert.informativeText = "Screen Blocker can't notify you when focus sessions end. Enable notifications in System Settings to fix this."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!)
+        }
     }
 
     private func maybePromptBrowserPermissions() {
