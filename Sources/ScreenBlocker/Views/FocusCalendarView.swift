@@ -2,9 +2,13 @@ import SwiftUI
 
 struct FocusCalendarView: View {
     @State private var data: [Date: TimeInterval] = [:]
+    @State private var hoveredDate: Date? = nil
 
     private let green = Color(red: 0.20, green: 0.78, blue: 0.35)
     private let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+    private let dateFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateStyle = .medium; return f
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -42,7 +46,7 @@ struct FocusCalendarView: View {
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(cellColor(data[date] ?? 0))
                                     .frame(width: size, height: size)
-                                    .help(tooltip(date))
+                                    .onHover { inside in hoveredDate = inside ? date : nil }
                             } else {
                                 Color.clear.frame(width: size, height: size)
                             }
@@ -54,10 +58,17 @@ struct FocusCalendarView: View {
         .frame(maxHeight: CGFloat(7) * (size + gap))
     }
 
-    // MARK: - Legend
+    // MARK: - Legend + hover status
 
     private var legendRow: some View {
         HStack(spacing: 4) {
+            if let date = hoveredDate {
+                let d = data[date] ?? 0
+                Text(d > 0 ? "\(dateFmt.string(from: date)): \(d.formattedDuration) focused"
+                           : "\(dateFmt.string(from: date)): No focus")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
             Spacer()
             Text("Less").font(.system(size: 9)).foregroundColor(.secondary)
             ForEach(Array([0.0, 0.25, 0.5, 0.75, 1.0].enumerated()), id: \.0) { _, t in
@@ -78,20 +89,23 @@ struct FocusCalendarView: View {
         }
     }
 
-    // Builds 53 weeks anchored so today is always in the last column.
+    // Builds weeks from the Sunday on or before Jan 1 of the current year
+    // through the current week, so the grid always opens at January.
     // Each inner array is [Sun, Mon, …, Sat]; nil = future or padding.
     private func buildWeeks() -> [[Date?]] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let todayWD = cal.component(.weekday, from: today) - 1  // 0 = Sun
-        // Sunday of the week containing today
-        let thisSunday = cal.date(byAdding: .day, value: -todayWD, to: today)!
-        // Start 52 weeks before this Sunday
-        let startSunday = cal.date(byAdding: .day, value: -52 * 7, to: thisSunday)!
+
+        // Jan 1 of the current year
+        let year = cal.component(.year, from: today)
+        let jan1 = cal.date(from: DateComponents(year: year, month: 1, day: 1))!
+        // Rewind to the Sunday of that week
+        let jan1WD = cal.component(.weekday, from: jan1) - 1  // 0 = Sun
+        let startSunday = cal.date(byAdding: .day, value: -jan1WD, to: jan1)!
 
         var result: [[Date?]] = []
         var ws = startSunday
-        for _ in 0..<53 {
+        while ws <= today {
             var week: [Date?] = []
             for d in 0..<7 {
                 let date = cal.date(byAdding: .day, value: d, to: ws)!
@@ -109,12 +123,5 @@ struct FocusCalendarView: View {
         guard duration > 0 else { return Color.gray.opacity(0.12) }
         let t = min(1.0, duration / 7200)  // 2h = full intensity
         return green.opacity(0.15 + t * 0.85)
-    }
-
-    private func tooltip(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        let d = data[date] ?? 0
-        return d > 0 ? "\(f.string(from: date)): \(d.formattedDuration) focused" : "\(f.string(from: date)): No focus"
     }
 }
