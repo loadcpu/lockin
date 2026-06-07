@@ -36,9 +36,9 @@ struct StatsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         summaryCard
+                        focusCalendarSection
                         categorySection
                         topAppsSection
-                        if range != .today { focusCalendarSection }
                     }
                     .padding(24)
                 }
@@ -216,9 +216,8 @@ struct StatsView: View {
     // MARK: - Focus calendar
 
     private var focusCalendarSection: some View {
-        let calRange: FocusCalendarView.Range = range == .week ? .week : .month
-        return FocusCalendarView(initialRange: calRange)
-            .padding(20)
+        FocusCalendarView()
+            .padding(16)
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(12)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))

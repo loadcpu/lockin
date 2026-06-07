@@ -30,11 +30,15 @@ final class BlockerService: ObservableObject {
                 remainingSeconds = s.remainingSeconds
                 blockedAppNames = Set(s.blockedApps.map { $0.lowercased() })
                 startMonitoring()
-                // applyBlocks resolves IPs + pfctl (takes 2-4s) — run off main thread
+                // applyBlocks resolves IPs + pfctl (takes 2-4s) — run off main thread.
+                // On success, reload browser tabs so existing connections to blocked
+                // sites are cut off (mirrors the startSession path).
                 let websites = s.blockedWebsites
                 if !websites.isEmpty {
-                    DispatchQueue.global(qos: .utility).async {
-                        HostsManager.applyBlocks(domains: websites)
+                    DispatchQueue.global(qos: .utility).async { [weak self] in
+                        if HostsManager.applyBlocks(domains: websites) {
+                            self?.reloadBrowserTabs()
+                        }
                     }
                 }
             } else {

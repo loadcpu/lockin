@@ -1,101 +1,35 @@
 import SwiftUI
 
 struct FocusCalendarView: View {
-    enum Range: String, CaseIterable {
-        case week = "Week"; case month = "Month"; case year = "Year"
-    }
-
-    @State private var selectedRange: Range
     @State private var data: [Date: TimeInterval] = [:]
 
     private let green = Color(red: 0.20, green: 0.78, blue: 0.35)
-    private let daySymbols = ["S", "M", "T", "W", "T", "F", "S"]
-
-    init(initialRange: Range = .month) {
-        _selectedRange = State(initialValue: initialRange)
-    }
+    private let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("FOCUS HISTORY")
-                    .font(.caption.bold())
-                    .foregroundColor(.secondary)
-                    .tracking(0.5)
-                Spacer()
-                Picker("", selection: $selectedRange) {
-                    ForEach(Range.allCases, id: \.self) { r in Text(r.rawValue).tag(r) }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 190)
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            Text("FOCUS HISTORY")
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+                .tracking(0.5)
 
-            switch selectedRange {
-            case .week:  weekView
-            case .month: monthView
-            case .year:  yearView
-            }
-
+            yearView
             legendRow
         }
         .onAppear { load() }
     }
 
-    // MARK: - Week (7 days horizontal, fills available width)
-
-    private var weekView: some View {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let days: [Date] = (0..<7).reversed().compactMap { cal.date(byAdding: .day, value: -$0, to: today) }
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
-        return LazyVGrid(columns: cols, spacing: 5) {
-            ForEach(Array(days.enumerated()), id: \.0) { _, d in
-                Text(shortDay(d)).font(.system(size: 9)).foregroundColor(.secondary)
-            }
-            ForEach(Array(days.enumerated()), id: \.0) { _, d in
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(cellColor(data[d] ?? 0))
-                    .aspectRatio(1, contentMode: .fit)
-                    .help(tooltip(d))
-            }
-        }
-    }
-
-    // MARK: - Month (traditional calendar: rows = weeks, cols = Sun-Sat)
-
-    private var monthView: some View {
-        let weeks = buildWeeks(count: 5)
-        let allCells: [Date?] = weeks.flatMap { $0 }
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 3), count: 7)
-        return LazyVGrid(columns: cols, spacing: 4) {
-            ForEach(Array(daySymbols.enumerated()), id: \.0) { _, sym in
-                Text(sym).font(.system(size: 9)).foregroundColor(.secondary).frame(maxWidth: .infinity)
-            }
-            ForEach(Array(allCells.enumerated()), id: \.0) { _, dateOpt in
-                if let date = dateOpt {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(cellColor(data[date] ?? 0))
-                        .aspectRatio(1, contentMode: .fit)
-                        .help(tooltip(date))
-                } else {
-                    Color.clear.aspectRatio(1, contentMode: .fit)
-                }
-            }
-        }
-    }
-
-    // MARK: - Year (GitHub-style: cols = weeks, rows = days, scrollable)
+    // MARK: - Year (GitHub-style: cols = weeks, rows = Sun–Sat)
 
     private var yearView: some View {
-        let weeks = buildWeeks(count: 53)
+        let weeks = buildWeeks()
         let size: CGFloat = 10
-        let gap: CGFloat = 1
+        let gap: CGFloat = 2
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: gap) {
-                // M / W / F labels on left
                 VStack(spacing: gap) {
                     ForEach(0..<7, id: \.self) { i in
-                        Text(i == 1 || i == 3 || i == 5 ? daySymbols[i] : "")
+                        Text(i == 1 || i == 3 || i == 5 ? dayLabels[i] : "")
                             .font(.system(size: 7))
                             .foregroundColor(.secondary)
                             .frame(width: 8, height: size)
@@ -123,12 +57,12 @@ struct FocusCalendarView: View {
     // MARK: - Legend
 
     private var legendRow: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Spacer()
             Text("Less").font(.system(size: 9)).foregroundColor(.secondary)
             ForEach(Array([0.0, 0.25, 0.5, 0.75, 1.0].enumerated()), id: \.0) { _, t in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(t == 0 ? Color.gray.opacity(0.12) : green.opacity(0.15 + t * 0.85))
+                    .fill(t == 0 ? Color.gray.opacity(0.15) : green.opacity(0.15 + t * 0.85))
                     .frame(width: 10, height: 10)
             }
             Text("More").font(.system(size: 9)).foregroundColor(.secondary)
@@ -144,18 +78,20 @@ struct FocusCalendarView: View {
         }
     }
 
-    // Returns [[Date?]] — each inner array is one week [Sun…Sat].
-    // Used as columns for year view, or rows for month view.
-    private func buildWeeks(count: Int) -> [[Date?]] {
+    // Builds 53 weeks anchored so today is always in the last column.
+    // Each inner array is [Sun, Mon, …, Sat]; nil = future or padding.
+    private func buildWeeks() -> [[Date?]] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let approxStart = cal.date(byAdding: .day, value: -(count * 7 - 1), to: today)!
-        let wd = cal.component(.weekday, from: approxStart) - 1  // 0 = Sun
-        let aligned = cal.date(byAdding: .day, value: -wd, to: approxStart)!
+        let todayWD = cal.component(.weekday, from: today) - 1  // 0 = Sun
+        // Sunday of the week containing today
+        let thisSunday = cal.date(byAdding: .day, value: -todayWD, to: today)!
+        // Start 52 weeks before this Sunday
+        let startSunday = cal.date(byAdding: .day, value: -52 * 7, to: thisSunday)!
 
         var result: [[Date?]] = []
-        var ws = aligned
-        for _ in 0..<count {
+        var ws = startSunday
+        for _ in 0..<53 {
             var week: [Date?] = []
             for d in 0..<7 {
                 let date = cal.date(byAdding: .day, value: d, to: ws)!
@@ -180,9 +116,5 @@ struct FocusCalendarView: View {
         f.dateStyle = .medium
         let d = data[date] ?? 0
         return d > 0 ? "\(f.string(from: date)): \(d.formattedDuration) focused" : "\(f.string(from: date)): No focus"
-    }
-
-    private func shortDay(_ date: Date) -> String {
-        ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][Calendar.current.component(.weekday, from: date) - 1]
     }
 }

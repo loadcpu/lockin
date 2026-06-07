@@ -10,9 +10,5 @@ let package = Package(
             path: "Sources/ScreenBlocker",
             linkerSettings: [.linkedLibrary("sqlite3")]
         ),
-        .executableTarget(
-            name: "ScreenBlockerDNS",
-            path: "Sources/ScreenBlockerDNS"
-        )
     ]
 )
