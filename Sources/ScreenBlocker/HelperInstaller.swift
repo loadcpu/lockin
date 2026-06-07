@@ -4,8 +4,8 @@ import AppKit
 enum HelperInstaller {
     private static let helperPath   = "/usr/local/bin/screenblocker-hosts"
     private static let sudoersPath  = "/etc/sudoers.d/screenblocker"
-    private static let versionTag   = "# sb-version v6"
-    private static let defaultsKey  = "helperInstalled_v6"
+    private static let versionTag   = "# sb-version v7"
+    private static let defaultsKey  = "helperInstalled_v7"
     private static let agentLabel   = "com.local.screenblocker"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
@@ -144,7 +144,7 @@ enum HelperInstaller {
 
     private static let helperScriptContent: String = #"""
 #!/bin/bash
-# sb-version v6
+# sb-version v7
 ACTION="$1"
 TEMPFILE="$2"
 ANCHOR="com.apple/screenblocker"
@@ -167,9 +167,13 @@ if [ "$ACTION" = "apply" ]; then
         lsof -i tcp:443 -i tcp:80 -n -P 2>/dev/null | \
             awk '/ESTABLISHED/ && ($1 ~ /Safari|Google|Chrome|Arc|Brave|firefox|msedge|Edge|Opera/) {
                 split($9, a, "->")
-                split(a[2], b, ":")
-                ip = b[1]; gsub(/[\[\]]/, "", ip)
-                if (ip != "" && ip !~ /^127\./) print ip
+                addr = a[2]
+                if (addr ~ /^\[/) {
+                    gsub(/^\[/, "", addr); sub(/\]:[0-9]*$/, "", addr); ip = addr
+                } else {
+                    split(addr, b, ":"); ip = b[1]
+                }
+                if (ip != "" && ip !~ /^127\./ && ip != "::1") print ip
             }' >> "$TMPIPS"
     fi
 
@@ -193,6 +197,8 @@ if [ "$ACTION" = "apply" ]; then
 
     IPS=$(grep -vE '^$|^127\.|^::1$' "$TMPIPS" | sort -u | tr '\n' ' ')
     rm -f "$TMPIPS"
+
+    echo "$(date '+%Y-%m-%d %H:%M:%S') DOMAINS=[$DOMAINS] IPS=[$IPS]" >> /tmp/screenblocker_ips.log
 
     if [ -n "$(echo "$IPS" | tr -d ' ')" ]; then
         pfctl -E 2>/dev/null || true
