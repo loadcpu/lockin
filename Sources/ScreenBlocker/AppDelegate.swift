@@ -40,12 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         setupStatusItem()
         startMainTimer()
         showDashboard()
-        // New users: onboarding handles notification permission with context.
-        // Returning users: request here and surface an alert if disabled.
-        if UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
-            checkNotificationAuthorization()
-            maybePromptBrowserPermissions()
-        }
     }
 
     private func setupMainMenu() {
@@ -71,45 +65,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         }
         src.resume()
         sigTermSource = src
-    }
-
-    private func checkNotificationAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
-            guard !granted else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.showNotificationsDisabledAlert()
-            }
-        }
-    }
-
-    private func showNotificationsDisabledAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Notifications Are Disabled"
-        alert.informativeText = "Screen Blocker can't notify you when focus sessions end. Enable notifications in System Settings to fix this."
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Later")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!)
-        }
-    }
-
-    private func maybePromptBrowserPermissions() {
-        guard !UserDefaults.standard.bool(forKey: "hasPromptedBrowserPermissions") else { return }
-        UserDefaults.standard.set(true, forKey: "hasPromptedBrowserPermissions")
-        // Let the UI settle before showing the prompt
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            self.promptBrowserPermissions()
-        }
-    }
-
-    private func promptBrowserPermissions() {
-        let alert = NSAlert()
-        alert.messageText = "Enable Instant Website Blocking"
-        alert.informativeText = "Screen Blocker can reload your open browser tabs the moment a session starts, so blocked websites are cut off immediately.\n\nmacOS will ask your permission for each browser you have open. Click Allow on each prompt — it only happens once."
-        alert.addButton(withTitle: "Grant Permission")
-        alert.addButton(withTitle: "Not Now")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        BlockerService.shared.primeBrowserPermissions()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

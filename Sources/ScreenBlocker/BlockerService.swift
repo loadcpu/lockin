@@ -116,18 +116,21 @@ final class BlockerService: ObservableObject {
     }
 
     private func scheduleSessionEndNotification(minutes: Int) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["session-complete"])
-        let content = UNMutableNotificationContent()
-        content.title = "Focus session complete"
-        content.body = "\(minutes)m focused."
-        content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(minutes * 60), repeats: false)
-        let request = UNNotificationRequest(identifier: "session-complete", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error {
-                NSLog("ScreenBlocker: notification schedule failed: %@", error.localizedDescription)
-            } else {
-                NSLog("ScreenBlocker: session-end notification scheduled for %dm", minutes)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["session-complete"])
+            let content = UNMutableNotificationContent()
+            content.title = "Focus session complete"
+            content.body = "\(minutes)m focused."
+            content.sound = .default
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(minutes * 60), repeats: false)
+            let request = UNNotificationRequest(identifier: "session-complete", content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error {
+                    NSLog("ScreenBlocker: notification schedule failed: %@", error.localizedDescription)
+                } else {
+                    NSLog("ScreenBlocker: session-end notification scheduled for %dm", minutes)
+                }
             }
         }
     }
@@ -217,15 +220,17 @@ final class BlockerService: ObservableObject {
     private func reloadBrowserTabs() {
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
             for b in self.knownBrowsers {
-                guard NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).first != nil else { continue }
-                // TCC silently rejects browsers the user previously denied — no dialog appears.
-                // For never-asked browsers, macOS shows the permission dialog in context here.
-                self.reloadTabs(in: b)
+                guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).first else { continue }
+                if !self.reloadTabs(in: b) {
+                    // Permission denied — kill the browser so open tabs can't be used to bypass blocking.
+                    app.forceTerminate()
+                }
             }
         }
     }
 
-    private func reloadTabs(in browser: Browser) {
+    @discardableResult
+    private func reloadTabs(in browser: Browser) -> Bool {
         let action = browser.isSafari ? "set URL of t to URL of t" : "reload t"
         let script = """
         if application "\(browser.name)" is running then
@@ -242,6 +247,7 @@ final class BlockerService: ObservableObject {
         """
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if let err { NSLog("ScreenBlocker: %@ reload error: %@", browser.name, err) }
+        if let err { NSLog("ScreenBlocker: %@ reload error — force quitting: %@", browser.name, err) }
+        return err == nil
     }
 }

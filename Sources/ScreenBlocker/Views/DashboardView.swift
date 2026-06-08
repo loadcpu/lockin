@@ -9,8 +9,6 @@ struct DashboardView: View {
     let onViewStats: () -> Void
 
     @State private var focusToday: TimeInterval = 0
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @State private var showOnboarding = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,18 +22,8 @@ struct DashboardView: View {
             bottomBar
         }
         .frame(width: 300)
-        .onAppear {
-            refreshStats()
-            if !hasCompletedOnboarding { showOnboarding = true }
-        }
+        .onAppear { refreshStats() }
         .onChange(of: store.todayTotal) { _ in refreshStats() }
-        .sheet(isPresented: $showOnboarding) {
-            OnboardingView {
-                hasCompletedOnboarding = true
-                showOnboarding = false
-                UserDefaults.standard.set(true, forKey: "hasPromptedBrowserPermissions")
-            }
-        }
     }
 
     private func refreshStats() {
