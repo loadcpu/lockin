@@ -79,7 +79,7 @@ struct StatsView: View {
             Text("No activity recorded yet")
                 .font(.headline)
                 .foregroundColor(.secondary)
-            Text("Screen Blocker tracks app usage as you work.\nData for \(range.rawValue.lowercased()) will appear here.")
+            Text("Lock In tracks app usage as you work.\nData for \(range.rawValue.lowercased()) will appear here.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

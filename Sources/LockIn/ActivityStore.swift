@@ -33,7 +33,7 @@ final class ActivityStore: ObservableObject {
     // MARK: - Storage (fallback custom tracking)
 
     private var baseDir: URL {
-        let dir = FileManager.screenblockerDir.appendingPathComponent("activity")
+        let dir = FileManager.lockinDir.appendingPathComponent("activity")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

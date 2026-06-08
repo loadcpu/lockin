@@ -43,7 +43,7 @@ struct Config: Codable {
     }
 
     private static var fileURL: URL {
-        FileManager.screenblockerDir.appendingPathComponent("config.json")
+        FileManager.lockinDir.appendingPathComponent("config.json")
     }
 
     static func load() -> Config {
@@ -61,9 +61,9 @@ struct Config: Codable {
 }
 
 extension FileManager {
-    static var screenblockerDir: URL {
+    static var lockinDir: URL {
         let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".screenblocker")
+            .appendingPathComponent(".lockin")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

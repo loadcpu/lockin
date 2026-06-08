@@ -17,7 +17,7 @@ final class FocusStore {
     private init() {}
 
     private var baseDir: URL {
-        let dir = FileManager.screenblockerDir.appendingPathComponent("focus")
+        let dir = FileManager.lockinDir.appendingPathComponent("focus")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

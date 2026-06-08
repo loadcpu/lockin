@@ -36,7 +36,7 @@ struct ConfigView: View {
                 .font(.title2)
                 .foregroundColor(.blue)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Screen Blocker")
+                Text("Lock In")
                     .font(.headline)
                 Text("Configure what gets blocked when a session starts")
                     .font(.caption)
@@ -187,7 +187,7 @@ struct ConfigView: View {
     private func grantBrowserPermissions() {
         let alert = NSAlert()
         alert.messageText = "Grant Browser Permissions"
-        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt.\n\nIf you previously clicked Don't Allow, open System Settings → Privacy & Security → Automation and enable Screen Blocker there."
+        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt.\n\nIf you previously clicked Don't Allow, open System Settings → Privacy & Security → Automation and enable Lock In there."
         alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Cancel")
@@ -209,7 +209,7 @@ struct ConfigView: View {
         guard !runningUnprimed.isEmpty else { return }
         let alert = NSAlert()
         alert.messageText = "Permission Not Granted"
-        alert.informativeText = "One or more browsers denied permission. To fix this, open System Settings → Privacy & Security → Automation and enable Screen Blocker for each browser."
+        alert.informativeText = "One or more browsers denied permission. To fix this, open System Settings → Privacy & Security → Automation and enable Lock In for each browser."
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "OK")
         if alert.runModal() == .alertFirstButtonReturn {

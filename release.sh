@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-APP="Screen Blocker"
-ZIP="ScreenBlocker.zip"
+APP="LockIn"
+ZIP="LockIn.zip"
 BOLD='\033[1m'; GREEN='\033[0;32m'; RESET='\033[0m'
 
 VERSION="${1:-}"

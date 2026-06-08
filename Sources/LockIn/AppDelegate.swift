@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     // MARK: - Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.local.screenblocker"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.local.lockin"
         if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
             NSApp.terminate(nil)
             return
@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         UNUserNotificationCenter.current().delegate = self
         setupMainMenu()
         installSigTermHandler()
+        migrateDataDirectoryIfNeeded()
         BlockerService.shared.loadState()
         HelperInstaller.ensureInstalled()
         HelperInstaller.ensureLaunchAgent()
@@ -44,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
     private func setupMainMenu() {
         let appMenu = NSMenu()
-        let quitItem = NSMenuItem(title: "Quit Screen Blocker", action: #selector(handleQuit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Lock In", action: #selector(handleQuit), keyEquivalent: "q")
         quitItem.target = self
         appMenu.addItem(quitItem)
         let appMenuItem = NSMenuItem()
@@ -92,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                     onConfigure:     { [weak self] in self?.openConfig() },
                     onViewStats:     { [weak self] in self?.openStats() }
                 ),
-                title: "Screen Blocker",
+                title: "Lock In",
                 size: NSSize(width: 300, height: 300),
                 style: [.titled, .closable, .fullSizeContentView]
             ) { win, hosting in
@@ -165,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         if configWC == nil {
             configWC = makeHostingWindow(
                 rootView: ConfigView(),
-                title: "Screen Blocker – Configure",
+                title: "Lock In – Configure",
                 size: NSSize(width: 520, height: 520),
                 style: [.titled, .closable, .miniaturizable]
             ) { win, hosting in
@@ -180,7 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         if statsWC == nil {
             statsWC = makeHostingWindow(
                 rootView: StatsView(),
-                title: "Screen Blocker – Screen Time",
+                title: "Lock In – Screen Time",
                 size: NSSize(width: 600, height: 560),
                 style: [.titled, .closable, .miniaturizable, .resizable]
             ) { win, hosting in
@@ -290,6 +291,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         configure?(win, hosting)
         win.center()
         return HostingWindowController(window: win)
+    }
+
+    // MARK: - Data migration
+
+    private func migrateDataDirectoryIfNeeded() {
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser
+        let old = home.appendingPathComponent(".screenblocker")
+        let new = home.appendingPathComponent(".lockin")
+        guard fm.fileExists(atPath: old.path) && !fm.fileExists(atPath: new.path) else { return }
+        try? fm.moveItem(at: old, to: new)
     }
 
     // MARK: - UNUserNotificationCenterDelegate

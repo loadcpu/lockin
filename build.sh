@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-STAGING=".build/Screen Blocker.app"
+STAGING=".build/Lock In.app"
 
 echo "Building…"
 swift build -c release 2>&1
@@ -14,7 +14,7 @@ rm -rf "$STAGING"
 mkdir -p "$STAGING/Contents/MacOS"
 mkdir -p "$STAGING/Contents/Resources"
 
-cp .build/release/ScreenBlocker "$STAGING/Contents/MacOS/ScreenBlocker"
+cp .build/release/LockIn "$STAGING/Contents/MacOS/LockIn"
 cp AppIcon.icns "$STAGING/Contents/Resources/AppIcon.icns"
 
 cat > "$STAGING/Contents/Info.plist" << 'PLIST'
@@ -23,13 +23,13 @@ cat > "$STAGING/Contents/Info.plist" << 'PLIST'
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>ScreenBlocker</string>
+    <string>LockIn</string>
     <key>CFBundleIdentifier</key>
-    <string>com.local.screenblocker</string>
+    <string>com.local.lockin</string>
     <key>CFBundleName</key>
-    <string>Screen Blocker</string>
+    <string>Lock In</string>
     <key>CFBundleDisplayName</key>
-    <string>Screen Blocker</string>
+    <string>Lock In</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -45,7 +45,7 @@ cat > "$STAGING/Contents/Info.plist" << 'PLIST'
     <key>NSHumanReadableCopyright</key>
     <string>Personal use only</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Screen Blocker reloads your browser tabs when a session starts so blocked websites take effect immediately.</string>
+    <string>Lock In reloads your browser tabs when a session starts so blocked websites take effect immediately.</string>
 </dict>
 </plist>
 PLIST

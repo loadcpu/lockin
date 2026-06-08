@@ -38,7 +38,7 @@ struct DashboardView: View {
                 .resizable()
                 .frame(width: 72, height: 72)
                 .padding(.top, 28)
-            Text("Screen Blocker")
+            Text("Lock In")
                 .font(.title3.bold())
         }
     }

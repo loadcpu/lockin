@@ -27,7 +27,7 @@ struct BlockSession: Codable {
     }
 
     private static var fileURL: URL {
-        FileManager.screenblockerDir.appendingPathComponent("session.json")
+        FileManager.lockinDir.appendingPathComponent("session.json")
     }
 
     static func load() -> BlockSession? {

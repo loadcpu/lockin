@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "ScreenBlocker",
+    name: "LockIn",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "ScreenBlocker",
-            path: "Sources/ScreenBlocker",
+            name: "LockIn",
+            path: "Sources/LockIn",
             linkerSettings: [.linkedLibrary("sqlite3")]
         ),
     ]

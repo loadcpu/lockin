@@ -1,10 +1,10 @@
 import Foundation
 
 struct HostsManager {
-    private static let tempPath   = "/tmp/screenblocker_hosts"
-    private static let helperPath = "/usr/local/bin/screenblocker-hosts"
-    private static let beginMark  = "# ScreenBlocker BEGIN"
-    private static let endMark    = "# ScreenBlocker END"
+    private static let tempPath   = "/tmp/lockin_hosts"
+    private static let helperPath = "/usr/local/bin/lockin-hosts"
+    private static let beginMark  = "# Lock In BEGIN"
+    private static let endMark    = "# Lock In END"
 
     @discardableResult
     static func applyBlocks(domains: [String]) -> Bool {

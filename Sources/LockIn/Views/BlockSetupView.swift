@@ -236,7 +236,7 @@ struct BlockSetupView: View {
     private func loadItems() {
         let config = service.config
         let store = ActivityStore.shared
-        let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Screen Blocker"
+        let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Lock In"
         let selfBundleID = Bundle.main.bundleIdentifier ?? ""
         var result: [BlockItem] = []
 

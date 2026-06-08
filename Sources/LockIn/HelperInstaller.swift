@@ -2,11 +2,11 @@ import Foundation
 import AppKit
 
 enum HelperInstaller {
-    private static let helperPath   = "/usr/local/bin/screenblocker-hosts"
-    private static let sudoersPath  = "/etc/sudoers.d/screenblocker"
-    private static let versionTag   = "# sb-version v7"
-    private static let defaultsKey  = "helperInstalled_v7"
-    private static let agentLabel   = "com.local.screenblocker"
+    private static let helperPath   = "/usr/local/bin/lockin-hosts"
+    private static let sudoersPath  = "/etc/sudoers.d/lockin"
+    private static let versionTag   = "# sb-version v8"
+    private static let defaultsKey  = "helperInstalled_v8"
+    private static let agentLabel   = "com.local.lockin"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
     static func ensureInstalled() {
@@ -22,18 +22,18 @@ enum HelperInstaller {
     }
 
     static func ensureLaunchAgent() {
-        guard Bundle.main.bundlePath == "/Applications/Screen Blocker.app" else { return }
+        guard Bundle.main.bundlePath == "/Applications/Lock In.app" else { return }
 
         let home     = FileManager.default.homeDirectoryForCurrentUser
         let agentDir = home.appendingPathComponent("Library/LaunchAgents")
         let plistURL = agentDir.appendingPathComponent("\(agentLabel).plist")
-        let logDir   = home.appendingPathComponent(".screenblocker")
+        let logDir   = home.appendingPathComponent(".lockin")
 
         if let existing = try? String(contentsOf: plistURL, encoding: .utf8),
            existing.contains(agentVersion) { return }
 
         let execPath = Bundle.main.executablePath
-            ?? "/Applications/Screen Blocker.app/Contents/MacOS/ScreenBlocker"
+            ?? "/Applications/Lock In.app/Contents/MacOS/LockIn"
 
         let plist = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -53,7 +53,7 @@ enum HelperInstaller {
             <dict>
                 <key>PathState</key>
                 <dict>
-                    <key>\(home.path)/.screenblocker/session.json</key>
+                    <key>\(home.path)/.lockin/session.json</key>
                     <true/>
                 </dict>
             </dict>
@@ -92,8 +92,8 @@ enum HelperInstaller {
     }
 
     private static func runInstaller() {
-        let stagingPath = "/tmp/screenblocker-hosts-staging"
-        let scriptPath  = "/tmp/screenblocker-install.sh"
+        let stagingPath = "/tmp/lockin-hosts-staging"
+        let scriptPath  = "/tmp/lockin-install.sh"
         let user = NSUserName()
 
         let installScript = """
@@ -135,7 +135,7 @@ enum HelperInstaller {
     private static func showAlert() {
         let a = NSAlert()
         a.messageText = "Website Blocking Disabled"
-        a.informativeText = "Website blocking requires a one-time setup. Quit and relaunch Screen Blocker to try again, then click Allow when prompted."
+        a.informativeText = "Website blocking requires a one-time setup. Quit and relaunch Lock In to try again, then click Allow when prompted."
         a.alertStyle = .warning
         a.runModal()
     }
@@ -144,10 +144,10 @@ enum HelperInstaller {
 
     private static let helperScriptContent: String = #"""
 #!/bin/bash
-# sb-version v7
+# sb-version v8
 ACTION="$1"
 TEMPFILE="$2"
-ANCHOR="com.apple/screenblocker"
+ANCHOR="com.apple/lockin"
 
 if [ "$ACTION" = "apply" ]; then
     DOMAINS=$(awk '/^127\.0\.0\.1/ && $2 !~ /^www\./{print $2}' "$TEMPFILE")
@@ -178,7 +178,7 @@ if [ "$ACTION" = "apply" ]; then
     fi
 
     # Update /etc/hosts
-    sed -i '' '/# ScreenBlocker BEGIN/,/# ScreenBlocker END/d' /etc/hosts
+    sed -i '' '/# Lock In BEGIN/,/# Lock In END/d' /etc/hosts
     cat "$TEMPFILE" >> /etc/hosts
 
     # Flush DNS cache AFTER collecting cached IPs above
@@ -198,7 +198,7 @@ if [ "$ACTION" = "apply" ]; then
     IPS=$(grep -vE '^$|^127\.|^::1$' "$TMPIPS" | sort -u | tr '\n' ' ')
     rm -f "$TMPIPS"
 
-    echo "$(date '+%Y-%m-%d %H:%M:%S') DOMAINS=[$DOMAINS] IPS=[$IPS]" >> /tmp/screenblocker_ips.log
+    echo "$(date '+%Y-%m-%d %H:%M:%S') DOMAINS=[$DOMAINS] IPS=[$IPS]" >> /tmp/lockin_ips.log
 
     if [ -n "$(echo "$IPS" | tr -d ' ')" ]; then
         pfctl -E 2>/dev/null || true
@@ -210,6 +210,8 @@ EOF
     fi
 
 elif [ "$ACTION" = "remove" ]; then
+    sed -i '' '/# Lock In BEGIN/,/# Lock In END/d' /etc/hosts
+    sed -i '' '/# LockIn BEGIN/,/# LockIn END/d' /etc/hosts
     sed -i '' '/# ScreenBlocker BEGIN/,/# ScreenBlocker END/d' /etc/hosts
     dscacheutil -flushcache
     killall -HUP mDNSResponder 2>/dev/null
