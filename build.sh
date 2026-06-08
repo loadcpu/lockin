@@ -14,8 +14,7 @@ rm -rf "$STAGING"
 mkdir -p "$STAGING/Contents/MacOS"
 mkdir -p "$STAGING/Contents/Resources"
 
-cp .build/release/ScreenBlocker    "$STAGING/Contents/MacOS/ScreenBlocker"
-cp .build/release/ScreenBlockerDNS "$STAGING/Contents/MacOS/ScreenBlockerDNS"
+cp .build/release/ScreenBlocker "$STAGING/Contents/MacOS/ScreenBlocker"
 cp AppIcon.icns "$STAGING/Contents/Resources/AppIcon.icns"
 
 cat > "$STAGING/Contents/Info.plist" << 'PLIST'

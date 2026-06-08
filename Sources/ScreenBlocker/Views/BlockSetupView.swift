@@ -228,10 +228,6 @@ struct BlockSetupView: View {
         }
     }
 
-    private var selectedMinutesLabel: String {
-        durationOptions.first { $0.0 == selectedMinutes }?.1 ?? "\(selectedMinutes)m"
-    }
-
     // MARK: - Data loading
 
     private var configItems: [BlockItem] { items.filter(\.isFromConfig).sorted { $0.todayDuration > $1.todayDuration } }
