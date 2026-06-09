@@ -245,7 +245,7 @@ struct ConfigView: View {
 
     // MARK: - Limits Tab
 
-    private let limitPresets = [(0, "Off"), (30, "30m"), (60, "1h"), (90, "90m"), (120, "2h"), (180, "3h")]
+    private let limitPresets = [(0, "Off"), (5, "5m"), (10, "10m"), (15, "15m"), (30, "30m"), (60, "1h"), (90, "90m"), (120, "2h")]
     private let limitCategories: [AppCategory] = [.entertainment, .social, .work, .development, .communication, .creative]
 
     private var limitsTab: some View {
