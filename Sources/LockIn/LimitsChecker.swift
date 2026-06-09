@@ -28,24 +28,63 @@ final class LimitsChecker {
             guard limitMinutes > 0, let category = AppCategory(rawValue: rawCategory) else { continue }
 
             let used = breakdown.first { $0.category == category }?.duration ?? 0
-
             let threshold = TimeInterval(limitMinutes * 60)
             guard used >= threshold else { continue }
 
-            // One notification per category per day
+            // One trigger per category per day
             let dayStamp = Int(Calendar.current.startOfDay(for: Date()).timeIntervalSinceReferenceDate)
             let notifKey = "limit_notified_\(rawCategory)_\(dayStamp)"
             guard !UserDefaults.standard.bool(forKey: notifKey) else { continue }
             UserDefaults.standard.set(true, forKey: notifKey)
 
-            deliver(category: category, used: used, limit: limitMinutes)
+            let apps  = collectApps(for: category, config: config)
+            let sites = collectSites(for: category, config: config)
+
+            if !BlockerService.shared.isBlocking, (!apps.isEmpty || !sites.isEmpty) {
+                let mins = minutesUntilMidnight()
+                DispatchQueue.main.async {
+                    BlockerService.shared.startSession(minutes: mins, apps: apps, websites: sites)
+                }
+                deliver(category: category, used: used, limit: limitMinutes, willBlock: true)
+            } else {
+                deliver(category: category, used: used, limit: limitMinutes, willBlock: false)
+            }
         }
     }
 
-    private func deliver(category: AppCategory, used: TimeInterval, limit: Int) {
+    // MARK: - Helpers
+
+    private func collectApps(for category: AppCategory, config: Config) -> [String] {
+        let fromActivity = ActivityStore.shared.topApps(forDays: 1, limit: 50)
+            .filter { u in
+                u.domain == nil &&
+                config.category(for: u.bundleID.isEmpty ? u.appName : u.bundleID) == category
+            }
+            .map(\.appName)
+        let fromConfig = config.blockedApps.filter { config.category(for: $0) == category }
+        return Array(Set(fromActivity + fromConfig))
+    }
+
+    private func collectSites(for category: AppCategory, config: Config) -> [String] {
+        let fromActivity = ActivityStore.shared.topApps(forDays: 1, limit: 50)
+            .compactMap(\.domain)
+            .filter { config.category(for: $0) == category }
+        let fromConfig = config.blockedWebsites.filter { config.category(for: $0) == category }
+        return Array(Set(fromActivity + fromConfig))
+    }
+
+    private func minutesUntilMidnight() -> Int {
+        let cal = Calendar.current
+        let tomorrow = cal.startOfDay(for: cal.date(byAdding: .day, value: 1, to: Date())!)
+        return max(1, Int(tomorrow.timeIntervalSinceNow / 60))
+    }
+
+    private func deliver(category: AppCategory, used: TimeInterval, limit: Int, willBlock: Bool) {
         let content = UNMutableNotificationContent()
-        content.title = "Screen Time Alert"
-        content.body = "You've spent \(used.formattedDuration) on \(category.rawValue) today — your \(limit)m limit."
+        content.title = "Screen Time Limit Reached"
+        content.body = willBlock
+            ? "\(used.formattedDuration) on \(category.rawValue) — apps are now blocked for the rest of the day."
+            : "You've spent \(used.formattedDuration) on \(category.rawValue) today — your \(limit)m limit."
         content.sound = .default
         UNUserNotificationCenter.current()
             .add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
