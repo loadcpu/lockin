@@ -9,6 +9,7 @@ final class BlockerService: ObservableObject {
     @Published var isBlocking = false
     @Published var remainingSeconds = 0
     @Published var config: Config = .load()
+    @Published private(set) var hasLimitRestrictions = false
 
     @Published private(set) var primedBrowserIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "primedBrowserIDs") ?? []) {
         didSet { UserDefaults.standard.set(Array(primedBrowserIDs), forKey: "primedBrowserIDs") }
@@ -16,7 +17,11 @@ final class BlockerService: ObservableObject {
 
     private var session: BlockSession?
     private var killTimer: Timer?
+    private var isMonitoring = false
     private var blockedAppNames: Set<String> = []
+    private var limitBlockedApps: Set<String> = []
+    private var limitBlockedWebsites: Set<String> = []
+    private let websiteBlockQueue = DispatchQueue(label: "com.local.lockin.website-blocks", qos: .utility)
 
     private init() {}
 
@@ -28,19 +33,7 @@ final class BlockerService: ObservableObject {
                 session = s
                 isBlocking = true
                 remainingSeconds = s.remainingSeconds
-                blockedAppNames = Set(s.blockedApps.map { $0.lowercased() })
-                startMonitoring()
-                // applyBlocks resolves IPs + pfctl (takes 2-4s) — run off main thread.
-                // On success, reload browser tabs so existing connections to blocked
-                // sites are cut off (mirrors the startSession path).
-                let websites = s.blockedWebsites
-                if !websites.isEmpty {
-                    DispatchQueue.global(qos: .utility).async { [weak self] in
-                        if HostsManager.applyBlocks(domains: websites) {
-                            self?.reloadBrowserTabs()
-                        }
-                    }
-                }
+                refreshEffectiveBlocks(reloadBrowserTabs: true)
             } else {
                 HostsManager.removeBlocks()
                 BlockSession.clear()
@@ -71,23 +64,22 @@ final class BlockerService: ObservableObject {
         session = s
         isBlocking = true
         remainingSeconds = s.remainingSeconds
-        blockedAppNames = Set(s.blockedApps.map { $0.lowercased() })
+        refreshEffectiveBlocks(reloadBrowserTabs: true)
         // Schedule the end notification now, while the app is stable.
         // The system daemon holds it and fires it even after this process exits,
         // avoiding the BlockSession.clear() → launchd SIGTERM → app-exit race.
         scheduleSessionEndNotification(minutes: minutes)
-        startMonitoring()
+    }
 
-        let websitesToBlock = s.blockedWebsites
-        guard !websitesToBlock.isEmpty else { return }
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // applyBlocks resolves IPs + applies pfctl rules (~2-4s).
-            // reloadBrowserTabs fires 1s after that, so pfctl is already in place
-            // when tabs reload — killing existing connections on the spot.
-            if HostsManager.applyBlocks(domains: websitesToBlock) {
-                self?.reloadBrowserTabs()
-            }
-        }
+    func updateLimitBlocks(apps: [String], websites: [String]) {
+        let newApps = Set(apps.map { $0.lowercased() })
+        let newWebsites = Set(websites)
+        guard newApps != limitBlockedApps || newWebsites != limitBlockedWebsites else { return }
+
+        limitBlockedApps = newApps
+        limitBlockedWebsites = newWebsites
+        hasLimitRestrictions = !newApps.isEmpty || !newWebsites.isEmpty
+        refreshEffectiveBlocks(reloadBrowserTabs: hasLimitRestrictions)
     }
 
     func saveConfig() {
@@ -109,10 +101,8 @@ final class BlockerService: ObservableObject {
         isBlocking = false
         remainingSeconds = 0
         session = nil
-        blockedAppNames = []
         BlockSession.clear()
-        stopMonitoring()
-        HostsManager.removeBlocks()
+        refreshEffectiveBlocks(reloadBrowserTabs: false)
     }
 
     private func scheduleSessionEndNotification(minutes: Int) {
@@ -136,6 +126,8 @@ final class BlockerService: ObservableObject {
     }
 
     private func startMonitoring() {
+        guard !isMonitoring else { return }
+        isMonitoring = true
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(appLaunched(_:)),
@@ -148,9 +140,33 @@ final class BlockerService: ObservableObject {
     }
 
     private func stopMonitoring() {
+        guard isMonitoring else { return }
+        isMonitoring = false
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         killTimer?.invalidate()
         killTimer = nil
+    }
+
+    private func refreshEffectiveBlocks(reloadBrowserTabs shouldReload: Bool) {
+        let sessionApps = Set(session?.blockedApps.map { $0.lowercased() } ?? [])
+        let sessionWebsites = Set(session?.blockedWebsites ?? [])
+        blockedAppNames = sessionApps.union(limitBlockedApps)
+
+        if blockedAppNames.isEmpty {
+            stopMonitoring()
+        } else {
+            startMonitoring()
+            killBlockedApps()
+        }
+
+        let websites = Array(sessionWebsites.union(limitBlockedWebsites))
+        websiteBlockQueue.async { [weak self] in
+            if websites.isEmpty {
+                HostsManager.removeBlocks()
+            } else if HostsManager.applyBlocks(domains: websites), shouldReload {
+                self?.reloadBrowserTabs()
+            }
+        }
     }
 
     @objc private func appLaunched(_ note: Notification) {

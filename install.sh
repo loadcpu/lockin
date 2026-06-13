@@ -12,9 +12,10 @@ if [ -f Package.swift ]; then
     ./build.sh
 
     # Unload the agent first so launchd doesn't race-restart the old binary
-    # while we're swapping the app bundle
+    # while we're swapping the app bundle. Active sessions intentionally ignore
+    # SIGTERM, so an explicit reinstall must use SIGKILL after unloading launchd.
     launchctl unload "$PLIST" 2>/dev/null || true
-    pkill -x "LockIn" 2>/dev/null || true
+    pkill -KILL -x "LockIn" 2>/dev/null || true
 
     rm -rf "/Applications/$APP.app"
     cp -r ".build/$APP.app" /Applications/

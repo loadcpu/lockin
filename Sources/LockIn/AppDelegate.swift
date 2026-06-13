@@ -146,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             menu.addItem(.separator())
             add(disabled: "🔒  Session locked – cannot stop early", to: menu)
         } else {
-            add(disabled: "✅  Ready", to: menu)
+            add(disabled: svc.hasLimitRestrictions ? "🔒  Category limits active" : "✅  Ready", to: menu)
             menu.addItem(.separator())
             menu.addItem(item("Dashboard",       action: #selector(openDashboard), key: "d"))
             menu.addItem(item("Screen Time…",    action: #selector(openStats),     key: "t"))
@@ -178,6 +178,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     @objc private func openStats() {
+        // Closing an NSWindow only orders it out, so discard its hosting view before
+        // reopening to reset the selected range and ScrollView position.
+        if statsWC?.window?.isVisible == false {
+            statsWC = nil
+        }
+
         if statsWC == nil {
             statsWC = makeHostingWindow(
                 rootView: StatsView(),

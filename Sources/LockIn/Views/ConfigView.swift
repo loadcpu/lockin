@@ -12,20 +12,31 @@ struct ConfigView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            TabView(selection: $selectedTab) {
-                appsTab
-                    .tabItem { Label("Apps", systemImage: "app.badge.checkmark") }
-                    .tag(0)
-                websitesTab
-                    .tabItem { Label("Websites", systemImage: "globe") }
-                    .tag(1)
-                limitsTab
-                    .tabItem { Label("Limits", systemImage: "bell.badge") }
-                    .tag(2)
+            tabPicker
+            Divider()
+            Group {
+                switch selectedTab {
+                case 0: appsTab
+                case 1: websitesTab
+                default: limitsTab
+                }
             }
-            .padding(.top, 4)
         }
         .frame(width: 520, height: 520)
+    }
+
+    private var tabPicker: some View {
+        HStack {
+            Picker("", selection: $selectedTab) {
+                Text("Apps").tag(0)
+                Text("Websites").tag(1)
+                Text("Limits").tag(2)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 260)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Header

@@ -8,6 +8,7 @@ final class LimitsChecker {
     private init() {}
 
     func start() {
+        check()
         checkTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.check()
         }
@@ -20,9 +21,14 @@ final class LimitsChecker {
 
     private func check() {
         let config = BlockerService.shared.config
-        guard !config.categoryLimits.isEmpty else { return }
+        guard !config.categoryLimits.isEmpty else {
+            BlockerService.shared.updateLimitBlocks(apps: [], websites: [])
+            return
+        }
 
         let breakdown = ActivityStore.shared.categoryBreakdown(forDays: 1) { config.category(for: $0) }
+        var blockedApps = Set<String>()
+        var blockedSites = Set<String>()
 
         for (rawCategory, limitMinutes) in config.categoryLimits {
             guard limitMinutes > 0, let category = AppCategory(rawValue: rawCategory) else { continue }
@@ -31,25 +37,24 @@ final class LimitsChecker {
             let threshold = TimeInterval(limitMinutes * 60)
             guard used >= threshold else { continue }
 
-            // One trigger per category per day
+            let apps  = collectApps(for: category, config: config)
+            let sites = collectSites(for: category, config: config)
+            blockedApps.formUnion(apps)
+            blockedSites.formUnion(sites)
+
+            // Notifications fire once per category per day; enforcement is recomputed
+            // every minute so it survives focus sessions and clears at midnight.
             let dayStamp = Int(Calendar.current.startOfDay(for: Date()).timeIntervalSinceReferenceDate)
             let notifKey = "limit_notified_\(rawCategory)_\(dayStamp)"
             guard !UserDefaults.standard.bool(forKey: notifKey) else { continue }
             UserDefaults.standard.set(true, forKey: notifKey)
-
-            let apps  = collectApps(for: category, config: config)
-            let sites = collectSites(for: category, config: config)
-
-            if !BlockerService.shared.isBlocking, (!apps.isEmpty || !sites.isEmpty) {
-                let mins = minutesUntilMidnight()
-                DispatchQueue.main.async {
-                    BlockerService.shared.startSession(minutes: mins, apps: apps, websites: sites)
-                }
-                deliver(category: category, used: used, limit: limitMinutes, willBlock: true)
-            } else {
-                deliver(category: category, used: used, limit: limitMinutes, willBlock: false)
-            }
+            deliver(category: category, used: used, limit: limitMinutes, willBlock: !apps.isEmpty || !sites.isEmpty)
         }
+
+        BlockerService.shared.updateLimitBlocks(
+            apps: Array(blockedApps),
+            websites: Array(blockedSites)
+        )
     }
 
     // MARK: - Helpers
@@ -71,12 +76,6 @@ final class LimitsChecker {
             .filter { config.category(for: $0) == category }
         let fromConfig = config.blockedWebsites.filter { config.category(for: $0) == category }
         return Array(Set(fromActivity + fromConfig))
-    }
-
-    private func minutesUntilMidnight() -> Int {
-        let cal = Calendar.current
-        let tomorrow = cal.startOfDay(for: cal.date(byAdding: .day, value: 1, to: Date())!)
-        return max(1, Int(tomorrow.timeIntervalSinceNow / 60))
     }
 
     private func deliver(category: AppCategory, used: TimeInterval, limit: Int, willBlock: Bool) {

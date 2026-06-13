@@ -74,8 +74,11 @@ struct DashboardView: View {
 
     private var readyStatus: some View {
         VStack(spacing: 14) {
-            Label("Ready to focus", systemImage: "checkmark.circle.fill")
-                .foregroundColor(.green)
+            Label(
+                service.hasLimitRestrictions ? "Category limits active" : "Ready to focus",
+                systemImage: service.hasLimitRestrictions ? "lock.fill" : "checkmark.circle.fill"
+            )
+                .foregroundColor(service.hasLimitRestrictions ? .orange : .green)
                 .font(.subheadline)
             Button(action: onStartBlocking) {
                 Text("Start Blocking")
