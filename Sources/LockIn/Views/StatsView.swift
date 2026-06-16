@@ -9,6 +9,7 @@ struct StatsView: View {
     @ObservedObject private var service = BlockerService.shared
     @ObservedObject private var store = ActivityStore.shared
     @State private var range: TimeRange = .today
+    @State private var selectedDate: Date? = nil
     @State private var totalDuration: TimeInterval = 0
     @State private var topApps: [ActivityStore.AppUsage] = []
     @State private var categories: [ActivityStore.CategoryUsage] = []
@@ -26,28 +27,38 @@ struct StatsView: View {
         }
     }
 
+    private let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f
+    }()
+
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            if totalDuration < 1 {
-                emptyState
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        summaryCard
-                        focusCalendarSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    summaryCard
+                    focusCalendarSection
+                    if totalDuration < 1 {
+                        emptyState
+                    } else {
                         categorySection
                         topAppsSection
                     }
-                    .padding(24)
                 }
+                .padding(24)
             }
         }
         .frame(width: 600, height: 580)
         .onAppear(perform: reload)
         .onChange(of: range) { _ in reload() }
-        .onChange(of: store.todayTotal) { _ in if range == .today { reload() } }
+        .onChange(of: store.todayTotal) { _ in
+            if selectedDate.map(Calendar.current.isDateInToday) ?? (range == .today) {
+                reload()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .statsViewShouldReload)) { _ in reload() }
     }
 
@@ -58,7 +69,28 @@ struct StatsView: View {
             Label("Screen Time", systemImage: "chart.bar.fill")
                 .font(.title3.bold())
             Spacer()
-            Picker("", selection: $range) {
+            if let selectedDate {
+                Button {
+                    self.selectedDate = nil
+                    reload()
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(dayFormatter.string(from: selectedDate))
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            Picker("", selection: Binding(
+                get: { range },
+                set: { newRange in
+                    range = newRange
+                    selectedDate = nil
+                }
+            )) {
                 ForEach(TimeRange.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
@@ -79,7 +111,7 @@ struct StatsView: View {
             Text("No activity recorded yet")
                 .font(.headline)
                 .foregroundColor(.secondary)
-            Text("Lock In tracks app usage as you work.\nData for \(range.rawValue.lowercased()) will appear here.")
+            Text("Lock In tracks app usage as you work.\nData for \(emptyStateRangeLabel) will appear here.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -152,7 +184,7 @@ struct StatsView: View {
                 productivityRow
             }
 
-            if currentStreak > 0 || longestStreak > 0 {
+            if selectedDate == nil && (currentStreak > 0 || longestStreak > 0) {
                 streakRow
             }
         }
@@ -206,6 +238,9 @@ struct StatsView: View {
     }
 
     private var rangeLabel: String {
+        if let selectedDate {
+            return dayFormatter.string(from: selectedDate).uppercased()
+        }
         switch range {
         case .today: return "TODAY"
         case .week:  return "LAST 7 DAYS"
@@ -213,10 +248,23 @@ struct StatsView: View {
         }
     }
 
+    private var emptyStateRangeLabel: String {
+        if let selectedDate {
+            return dayFormatter.string(from: selectedDate)
+        }
+        return range.rawValue.lowercased()
+    }
+
     // MARK: - Focus calendar
 
     private var focusCalendarSection: some View {
-        FocusCalendarView()
+        FocusCalendarView(
+            selectedDate: $selectedDate,
+            onSelectDate: { date in
+                selectedDate = date
+                reload()
+            }
+        )
             .padding(16)
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(12)
@@ -327,12 +375,20 @@ struct StatsView: View {
     }
 
     private func reload() {
-        let d = range.days
-        totalDuration = store.totalDuration(forDays: d)
-        topApps = store.topApps(forDays: d, limit: 12)
-        categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
-            .sorted { $0.duration > $1.duration }
-        focusTotal = FocusStore.shared.focusTotal(forDays: d)
+        if let selectedDate {
+            totalDuration = store.totalDuration(for: selectedDate)
+            topApps = store.topApps(for: selectedDate, limit: 12)
+            categories = store.categoryBreakdown(for: selectedDate) { service.config.category(for: $0) }
+                .sorted { $0.duration > $1.duration }
+            focusTotal = FocusStore.shared.focusTotal(for: selectedDate)
+        } else {
+            let d = range.days
+            totalDuration = store.totalDuration(forDays: d)
+            topApps = store.topApps(forDays: d, limit: 12)
+            categories = store.categoryBreakdown(forDays: d) { service.config.category(for: $0) }
+                .sorted { $0.duration > $1.duration }
+            focusTotal = FocusStore.shared.focusTotal(forDays: d)
+        }
         currentStreak = FocusStore.shared.currentStreak()
         longestStreak = FocusStore.shared.longestStreak()
     }

@@ -122,6 +122,13 @@ final class ActivityStore: ObservableObject {
         return events(forDays: days).reduce(0) { $0 + $1.duration }
     }
 
+    func totalDuration(for date: Date) -> TimeInterval {
+        if ScreenTimeReader.shared.isAvailable {
+            return ScreenTimeReader.shared.totalDuration(for: date)
+        }
+        return events(for: date).reduce(0) { $0 + $1.duration }
+    }
+
     func topApps(forDays days: Int, limit: Int = 10) -> [AppUsage] {
         if ScreenTimeReader.shared.isAvailable {
             return screenTimeTopApps(forDays: days, limit: limit)
@@ -129,11 +136,25 @@ final class ActivityStore: ObservableObject {
         return aggregate(events(forDays: days), limit: limit)
     }
 
+    func topApps(for date: Date, limit: Int = 10) -> [AppUsage] {
+        if ScreenTimeReader.shared.isAvailable {
+            return screenTimeTopApps(for: date, limit: limit)
+        }
+        return aggregate(events(for: date), limit: limit)
+    }
+
     func categoryBreakdown(forDays days: Int, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
         if ScreenTimeReader.shared.isAvailable {
             return screenTimeCategoryBreakdown(forDays: days, lookup: categoryLookup)
         }
         return buildCategoryBreakdown(events(forDays: days), lookup: categoryLookup)
+    }
+
+    func categoryBreakdown(for date: Date, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
+        if ScreenTimeReader.shared.isAvailable {
+            return screenTimeCategoryBreakdown(for: date, lookup: categoryLookup)
+        }
+        return buildCategoryBreakdown(events(for: date), lookup: categoryLookup)
     }
 
     // MARK: - Screen Time data paths
@@ -163,6 +184,26 @@ final class ActivityStore: ObservableObject {
             .map { $0 }
     }
 
+    private func screenTimeTopApps(for date: Date, limit: Int) -> [AppUsage] {
+        var byKey: [String: (appName: String, bundleID: String, domain: String?, duration: TimeInterval)] = [:]
+
+        for sample in ScreenTimeReader.shared.samples(for: date) {
+            let key = sample.domain ?? sample.bundleID
+            let appName = resolveAppName(bundleID: sample.bundleID) ?? sample.domain ?? sample.bundleID
+            if byKey[key] != nil {
+                byKey[key]!.duration += sample.duration
+            } else {
+                byKey[key] = (appName, sample.bundleID, sample.domain, sample.duration)
+            }
+        }
+
+        return byKey
+            .map { _, v in AppUsage(appName: v.appName, bundleID: v.bundleID, domain: v.domain, duration: v.duration) }
+            .sorted { $0.duration > $1.duration }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     private func screenTimeCategoryBreakdown(forDays days: Int, lookup: (String) -> AppCategory) -> [CategoryUsage] {
         let calendar = Calendar.current
         let today = Date()
@@ -175,6 +216,27 @@ final class ActivityStore: ObservableObject {
                 let cat = lookup(key)
                 byCategory[cat, default: 0] += sample.duration
             }
+        }
+
+        let noiseCategories: Set<AppCategory> = [.system, .other]
+        return byCategory
+            .map { CategoryUsage(category: $0.key, duration: $0.value) }
+            .filter { $0.duration > 0 }
+            .sorted {
+                let aNoise = noiseCategories.contains($0.category)
+                let bNoise = noiseCategories.contains($1.category)
+                if aNoise != bNoise { return bNoise }
+                return $0.duration > $1.duration
+            }
+    }
+
+    private func screenTimeCategoryBreakdown(for date: Date, lookup: (String) -> AppCategory) -> [CategoryUsage] {
+        var byCategory: [AppCategory: TimeInterval] = [:]
+
+        for sample in ScreenTimeReader.shared.samples(for: date) {
+            let key = sample.domain ?? sample.bundleID
+            let cat = lookup(key)
+            byCategory[cat, default: 0] += sample.duration
         }
 
         let noiseCategories: Set<AppCategory> = [.system, .other]

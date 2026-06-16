@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct FocusCalendarView: View {
+    @Binding var selectedDate: Date?
+    let onSelectDate: (Date) -> Void
+
     @State private var data: [Date: TimeInterval] = [:]
     @State private var hoveredDate: Date? = nil
 
@@ -43,10 +46,18 @@ struct FocusCalendarView: View {
                     VStack(spacing: gap) {
                         ForEach(0..<7, id: \.self) { d in
                             if let date = week[d] {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(cellColor(data[date] ?? 0))
-                                    .frame(width: size, height: size)
-                                    .onHover { inside in hoveredDate = inside ? date : nil }
+                                Button {
+                                    selectedDate = date
+                                    onSelectDate(date)
+                                } label: {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(cellColor(data[date] ?? 0))
+                                        .frame(width: size, height: size)
+                                        .overlay(selectionOverlay(for: date))
+                                }
+                                .buttonStyle(.plain)
+                                .onHover { inside in hoveredDate = inside ? date : nil }
+                                .help(helpText(for: date))
                             } else {
                                 Color.clear.frame(width: size, height: size)
                             }
@@ -123,5 +134,19 @@ struct FocusCalendarView: View {
         guard duration > 0 else { return Color.gray.opacity(0.12) }
         let t = min(1.0, duration / 7200)  // 2h = full intensity
         return green.opacity(0.15 + t * 0.85)
+    }
+
+    @ViewBuilder
+    private func selectionOverlay(for date: Date) -> some View {
+        if let selectedDate, Calendar.current.isDate(selectedDate, inSameDayAs: date) {
+            RoundedRectangle(cornerRadius: 2)
+                .stroke(Color.accentColor, lineWidth: 1.5)
+        }
+    }
+
+    private func helpText(for date: Date) -> String {
+        let d = data[date] ?? 0
+        let focus = d > 0 ? "\(d.formattedDuration) focused" : "No focus"
+        return "\(dateFmt.string(from: date)): \(focus). Click to view this day."
     }
 }

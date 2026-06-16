@@ -45,6 +45,10 @@ final class FocusStore {
         read(for: Date())
     }
 
+    func focusTotal(for date: Date) -> TimeInterval {
+        read(for: date)
+    }
+
     func focusTotal(forDays days: Int) -> TimeInterval {
         let cal = Calendar.current
         return (0..<days).reduce(0.0) { total, offset in
