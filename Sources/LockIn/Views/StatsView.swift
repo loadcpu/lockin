@@ -16,6 +16,7 @@ struct StatsView: View {
     @State private var focusTotal: TimeInterval = 0
     @State private var currentStreak: Int = 0
     @State private var longestStreak: Int = 0
+    @State private var scrollResetToken = UUID()
 
     enum TimeRange: String, CaseIterable {
         case today = "Today"
@@ -37,23 +38,34 @@ struct StatsView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    summaryCard
-                    focusCalendarSection
-                    if totalDuration < 1 {
-                        emptyState
-                    } else {
-                        categorySection
-                        topAppsSection
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Color.clear
+                            .frame(height: 0)
+                            .id("statsTop")
+                        summaryCard
+                        focusCalendarSection
+                        if totalDuration < 1 {
+                            emptyState
+                        } else {
+                            categorySection
+                            topAppsSection
+                        }
                     }
+                    .padding(24)
                 }
-                .padding(24)
+                .onChange(of: scrollResetToken) { _ in
+                    proxy.scrollTo("statsTop", anchor: .top)
+                }
             }
         }
         .frame(width: 600, height: 580)
         .onAppear(perform: reload)
-        .onChange(of: range) { _ in reload() }
+        .onChange(of: range) { _ in
+            reload()
+            resetScrollPosition()
+        }
         .onChange(of: store.todayTotal) { _ in
             if selectedDate.map(Calendar.current.isDateInToday) ?? (range == .today) {
                 reload()
@@ -73,6 +85,7 @@ struct StatsView: View {
                 Button {
                     self.selectedDate = nil
                     reload()
+                    resetScrollPosition()
                 } label: {
                     HStack(spacing: 5) {
                         Text(dayFormatter.string(from: selectedDate))
@@ -263,6 +276,7 @@ struct StatsView: View {
             onSelectDate: { date in
                 selectedDate = date
                 reload()
+                resetScrollPosition()
             }
         )
             .padding(16)
@@ -391,6 +405,10 @@ struct StatsView: View {
         }
         currentStreak = FocusStore.shared.currentStreak()
         longestStreak = FocusStore.shared.longestStreak()
+    }
+
+    private func resetScrollPosition() {
+        scrollResetToken = UUID()
     }
 }
 
