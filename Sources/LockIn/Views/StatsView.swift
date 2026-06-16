@@ -40,21 +40,24 @@ struct StatsView: View {
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 0) {
                         Color.clear
                             .frame(height: 0)
                             .id("statsTop")
-                        summaryCard
-                        focusCalendarSection
-                        if totalDuration < 1 {
-                            emptyState
-                        } else {
-                            categorySection
-                            topAppsSection
+                        VStack(alignment: .leading, spacing: 20) {
+                            summaryCard
+                            focusCalendarSection
+                            if totalDuration < 1 {
+                                emptyState
+                            } else {
+                                categorySection
+                                topAppsSection
+                            }
                         }
+                        .padding(24)
                     }
-                    .padding(24)
                 }
+                .background(ScrollViewInsetsResetter())
                 .onChange(of: scrollResetToken) { _ in
                     proxy.scrollTo("statsTop", anchor: .top)
                 }
@@ -428,6 +431,33 @@ struct CategoryBar: View {
             .clipShape(RoundedRectangle(cornerRadius: 5))
         }
         .frame(height: 10)
+    }
+}
+
+// SwiftUI's macOS ScrollView can preserve an automatic top content inset after
+// programmatic scrolling. Keep this view's origin deterministic across range changes.
+private struct ScrollViewInsetsResetter: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { resetEnclosingScrollView(from: view) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { resetEnclosingScrollView(from: nsView) }
+    }
+
+    private func resetEnclosingScrollView(from view: NSView) {
+        var current = view.superview
+        while let candidate = current {
+            if let scrollView = candidate as? NSScrollView {
+                scrollView.automaticallyAdjustsContentInsets = false
+                scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+                scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+                return
+            }
+            current = candidate.superview
+        }
     }
 }
 
