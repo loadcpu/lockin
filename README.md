@@ -7,7 +7,7 @@ No account. No subscription. No telemetry. 2.7 MB.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/get.sh | bash
+curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | bash
 ```
 
 Requires macOS 13 Ventura or later · Apple Silicon & Intel
@@ -29,7 +29,7 @@ Requires Xcode command line tools (`xcode-select --install`).
 - **Timed sessions** — timer runs in the menu bar; you can't stop early once it starts
 - **Screen time stats** — tracks active app usage and shows daily/weekly breakdowns
 
-On first launch, Screen Blocker asks for your admin password once to install a small privileged helper at `/usr/local/bin/screenblocker-hosts`. That helper is the only thing that runs as root — the app itself doesn't.
+On first launch, Screen Blocker asks for your admin password once to install a small privileged helper at `/usr/local/bin/lockin-hosts`. That helper is the only thing that runs as root — the app itself doesn't.
 
 ## License
 

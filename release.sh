@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP="LockIn"
+APP="Lock In"
 ZIP="LockIn.zip"
 BOLD='\033[1m'; GREEN='\033[0;32m'; RESET='\033[0m'
 
@@ -16,7 +16,7 @@ echo "${BOLD}Building…${RESET}"
 
 echo "${BOLD}Packaging zip…${RESET}"
 rm -f "$ZIP"
-# Zip just the .app — unzip -d /Applications/ extracts it directly
+# Zip just the .app bundle produced by build.sh.
 (cd .build && zip -qr "../$ZIP" "${APP}.app")
 
 SIZE=$(du -sh "$ZIP" | cut -f1)
