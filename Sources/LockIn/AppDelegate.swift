@@ -291,6 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             defer: false
         )
         win.title = title
+        win.titleVisibility = .hidden
         win.contentView = hosting
         win.isReleasedWhenClosed = false
         configure?(win, hosting)
