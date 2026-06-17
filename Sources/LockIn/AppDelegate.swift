@@ -32,7 +32,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         UNUserNotificationCenter.current().delegate = self
         setupMainMenu()
         installSigTermHandler()
-        migrateDataDirectoryIfNeeded()
         BlockerService.shared.loadState()
         HelperInstaller.ensureInstalled()
         HelperInstaller.ensureLaunchAgent()
@@ -297,17 +296,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         configure?(win, hosting)
         win.center()
         return HostingWindowController(window: win)
-    }
-
-    // MARK: - Data migration
-
-    private func migrateDataDirectoryIfNeeded() {
-        let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser
-        let old = home.appendingPathComponent(".screenblocker")
-        let new = home.appendingPathComponent(".lockin")
-        guard fm.fileExists(atPath: old.path) && !fm.fileExists(atPath: new.path) else { return }
-        try? fm.moveItem(at: old, to: new)
     }
 
     // MARK: - UNUserNotificationCenterDelegate

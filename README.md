@@ -1,4 +1,4 @@
-# Screen Blocker
+# Lock In
 
 A free, open-source macOS menu bar app that blocks distracting apps and websites on a timer — with screen time tracking.
 
@@ -29,7 +29,7 @@ Requires Xcode command line tools (`xcode-select --install`).
 - **Timed sessions** — timer runs in the menu bar; you can't stop early once it starts
 - **Screen time stats** — tracks active app usage and shows daily/weekly breakdowns
 
-On first launch, Screen Blocker asks for your admin password once to install a small privileged helper at `/usr/local/bin/lockin-hosts`. That helper is the only thing that runs as root — the app itself doesn't.
+On first launch, Lock In asks for your admin password once to install a small privileged helper at `/usr/local/bin/lockin-hosts`. That helper is the only thing that runs as root — the app itself doesn't.
 
 ## License
 

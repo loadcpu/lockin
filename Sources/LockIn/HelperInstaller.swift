@@ -212,7 +212,6 @@ EOF
 elif [ "$ACTION" = "remove" ]; then
     sed -i '' '/# Lock In BEGIN/,/# Lock In END/d' /etc/hosts
     sed -i '' '/# LockIn BEGIN/,/# LockIn END/d' /etc/hosts
-    sed -i '' '/# ScreenBlocker BEGIN/,/# ScreenBlocker END/d' /etc/hosts
     dscacheutil -flushcache
     killall -HUP mDNSResponder 2>/dev/null
     echo "" | pfctl -a "$ANCHOR" -f - 2>/dev/null || true
