@@ -1,10 +1,12 @@
 import AppKit
 import Foundation
 import Combine
+import ImageIO
 import UserNotifications
 
 final class BlockerService: ObservableObject {
     static let shared = BlockerService()
+    private static let blockPageLogoURL = makeBlockPageLogoDataURL()
 
     @Published var isBlocking = false
     @Published var remainingSeconds = 0
@@ -22,8 +24,13 @@ final class BlockerService: ObservableObject {
     private var limitBlockedApps: Set<String> = []
     private var limitBlockedWebsites: Set<String> = []
     private let websiteBlockQueue = DispatchQueue(label: "com.local.lockin.website-blocks", qos: .utility)
+    private var browserWatcherListenerID: UUID?
 
-    private init() {}
+    private init() {
+        browserWatcherListenerID = BrowserWatcher.shared.addListener { [weak self] domain, bundleID in
+            self?.handleBrowserDomainChange(domain: domain, bundleID: bundleID)
+        }
+    }
 
     // Called once at launch
     func loadState() {
@@ -149,7 +156,7 @@ final class BlockerService: ObservableObject {
 
     private func refreshEffectiveBlocks(reloadBrowserTabs shouldReload: Bool) {
         let sessionApps = Set(session?.blockedApps.map { $0.lowercased() } ?? [])
-        let sessionWebsites = Set(session?.blockedWebsites ?? [])
+        let sessionWebsites = Set((session?.blockedWebsites ?? []).compactMap(DomainMatcher.normalizeHost))
         blockedAppNames = sessionApps.union(limitBlockedApps)
 
         if blockedAppNames.isEmpty {
@@ -167,6 +174,22 @@ final class BlockerService: ObservableObject {
                 self?.reloadBrowserTabs()
             }
         }
+    }
+
+    private func handleBrowserDomainChange(domain: String?, bundleID: String?) {
+        guard let domain, let bundleID else { return }
+        guard isBlocking || hasLimitRestrictions else { return }
+        guard let browser = knownBrowsers.first(where: { $0.bundleID == bundleID }) else { return }
+        guard matchesBlockedWebsite(domain) else { return }
+        _ = interruptBlockedCurrentTab(in: browser, domain: domain)
+    }
+
+    private func matchesBlockedWebsite(_ domain: String) -> Bool {
+        guard let normalizedDomain = DomainMatcher.normalizeHost(domain) else { return false }
+        let blockedWebsites = Set((session?.blockedWebsites ?? []).compactMap(DomainMatcher.normalizeHost))
+            .union(limitBlockedWebsites)
+        guard !blockedWebsites.isEmpty else { return false }
+        return blockedWebsites.contains { DomainMatcher.matches(host: normalizedDomain, blockedDomain: $0) }
     }
 
     @objc private func appLaunched(_ note: Notification) {
@@ -276,6 +299,40 @@ final class BlockerService: ObservableObject {
     }
 
     @discardableResult
+    private func interruptBlockedCurrentTab(in browser: Browser, domain: String) -> Bool {
+        let replacementURL = blockPageURL(for: domain)
+        let script: String
+        if browser.isSafari {
+            script = """
+            if application "\(browser.name)" is running then
+                tell application "\(browser.name)"
+                    if (count of windows) > 0 then
+                        set URL of current tab of front window to "\(replacementURL)"
+                    end if
+                end tell
+            end if
+            """
+        } else {
+            script = """
+            if application "\(browser.name)" is running then
+                tell application "\(browser.name)"
+                    if (count of windows) > 0 then
+                        set URL of active tab of front window to "\(replacementURL)"
+                    end if
+                end tell
+            end if
+            """
+        }
+
+        var err: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if let err {
+            NSLog("LockIn: %@ blocked-site interrupt error for %@: %@", browser.name, domain, err)
+        }
+        return err == nil
+    }
+
+    @discardableResult
     private func reloadTabs(in browser: Browser) -> Bool {
         let action = browser.isSafari ? "set URL of t to URL of t" : "reload t"
         let script = """
@@ -295,5 +352,120 @@ final class BlockerService: ObservableObject {
         NSAppleScript(source: script)?.executeAndReturnError(&err)
         if let err { NSLog("LockIn: %@ reload error: %@", browser.name, err) }
         return err == nil
+    }
+
+    private func blockPageURL(for domain: String?) -> String {
+        let html = blockPageHTML(for: domain)
+        let base64HTML = Data(html.utf8).base64EncodedString()
+        return "data:text/html;charset=utf-8;base64,\(base64HTML)"
+    }
+
+    private func blockPageHTML(for domain: String?) -> String {
+        let message: String
+        if let domain {
+            message = "\(htmlEscaped(domain)) is blocked right now."
+        } else {
+            message = "This website is blocked right now."
+        }
+        let logoMarkup: String
+        if let logoURL = Self.blockPageLogoURL {
+            logoMarkup = #"<img class="brand-logo" src="\#(logoURL)" alt="Lock In logo">"#
+        } else {
+            logoMarkup = ""
+        }
+
+        return """
+        <!doctype html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Lock In</title>
+            <style>
+                :root { color-scheme: light; }
+                * { box-sizing: border-box; }
+                body {
+                    margin: 0;
+                    min-height: 100vh;
+                    display: grid;
+                    place-items: center;
+                    padding: 32px;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    background: #ffffff;
+                    color: #1d1d1f;
+                }
+                main {
+                    width: min(760px, 100%);
+                    padding: 36px 40px;
+                    border-radius: 24px;
+                    background: #f7f7f9;
+                    border: 1px solid #ececf1;
+                    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+                }
+                .brand {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 28px;
+                    color: #000000;
+                    font-size: 15px;
+                    font-weight: 700;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                }
+                .brand-logo {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 10px;
+                    display: block;
+                }
+                h1 {
+                    margin: 0 0 16px;
+                    font-size: clamp(30px, 5vw, 42px);
+                    line-height: 1.05;
+                }
+                p {
+                    margin: 0;
+                    font-size: 17px;
+                    line-height: 1.55;
+                    color: #4f4438;
+                }
+            </style>
+        </head>
+        <body>
+            <main>
+                <div class="brand">
+                    \(logoMarkup)
+                    <span>Lock In</span>
+                </div>
+                <h1>Stay on task.</h1>
+                <p>\(message)</p>
+            </main>
+        </body>
+        </html>
+        """
+    }
+
+    private func htmlEscaped(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+    }
+
+    private static func makeBlockPageLogoDataURL() -> String? {
+        guard let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+              let imageSource = CGImageSourceCreateWithURL(iconURL as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil),
+              let destinationData = CFDataCreateMutable(nil, 0),
+              let destination = CGImageDestinationCreateWithData(destinationData, "public.png" as CFString, 1, nil) else {
+            return nil
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        let pngData = destinationData as Data
+        return "data:image/png;base64,\(pngData.base64EncodedString())"
     }
 }
