@@ -8,12 +8,12 @@ struct HostsManager {
 
     @discardableResult
     static func applyBlocks(domains: [String]) -> Bool {
-        let normalizedDomains = Array(Set(domains.compactMap(DomainMatcher.normalizeHost))).sorted()
-        guard !normalizedDomains.isEmpty else { return true }
+        guard !domains.isEmpty else { return true }
         guard HelperInstaller.ensureInstalled() else { return false }
 
         var lines = [beginMark]
-        for bare in normalizedDomains {
+        for domain in domains {
+            let bare = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
             lines.append("127.0.0.1 \(bare)")
             lines.append("127.0.0.1 www.\(bare)")
             lines.append("::1 \(bare)")

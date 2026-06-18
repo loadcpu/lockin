@@ -27,18 +27,7 @@ struct Config: Codable {
     func category(for identifier: String) -> AppCategory {
         if let raw = appCategoryOverrides[identifier], let cat = AppCategory(rawValue: raw) { return cat }
         if let cat = defaultCategoryMappings[identifier] { return cat }
-        if let cat = matchingDomainCategory(for: identifier) { return cat }
         return bundleIDPrefixCategory(identifier) ?? .other
-    }
-
-    private func matchingDomainCategory(for identifier: String) -> AppCategory? {
-        guard let host = DomainMatcher.normalizeHost(identifier) else { return nil }
-        return defaultCategoryMappings
-            .compactMap { key, category -> (String, AppCategory)? in
-                DomainMatcher.matches(host: host, blockedDomain: key) ? (key, category) : nil
-            }
-            .max { lhs, rhs in lhs.0.count < rhs.0.count }?
-            .1
     }
 
     private func bundleIDPrefixCategory(_ id: String) -> AppCategory? {
