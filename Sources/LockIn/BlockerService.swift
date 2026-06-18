@@ -196,6 +196,21 @@ final class BlockerService: ObservableObject {
 
     var knownBrowserBundleIDs: [String] { knownBrowsers.map(\.bundleID) }
 
+    func browserName(forBundleID bundleID: String) -> String {
+        knownBrowsers.first(where: { $0.bundleID == bundleID })?.name ?? bundleID
+    }
+
+    @discardableResult
+    func forceQuitBrowsers(bundleIDs: [String]) -> [String] {
+        var closed: [String] = []
+        for bundleID in bundleIDs {
+            guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { continue }
+            app.forceTerminate()
+            closed.append(browserName(forBundleID: bundleID))
+        }
+        return closed
+    }
+
     private let knownBrowsers: [Browser] = [
         Browser(name: "Safari",         bundleID: "com.apple.Safari",              isSafari: true),
         Browser(name: "Google Chrome",  bundleID: "com.google.Chrome",             isSafari: false),
