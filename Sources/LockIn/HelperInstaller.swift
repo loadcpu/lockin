@@ -4,8 +4,8 @@ import AppKit
 enum HelperInstaller {
     private static let helperPath   = "/usr/local/bin/lockin-hosts"
     private static let sudoersPath  = "/etc/sudoers.d/lockin"
-    private static let versionTag   = "# sb-version v8"
-    private static let defaultsKey  = "helperInstalled_v8"
+    private static let versionTag   = "# sb-version v9"
+    private static let defaultsKey  = "helperInstalled_v9"
     private static let agentLabel   = "com.local.lockin"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
@@ -152,7 +152,7 @@ enum HelperInstaller {
 
     private static let helperScriptContent: String = #"""
 #!/bin/bash
-# sb-version v8
+# sb-version v9
 ACTION="$1"
 TEMPFILE="$2"
 ANCHOR="com.apple/lockin"
@@ -197,8 +197,12 @@ if [ "$ACTION" = "apply" ]; then
     if [ -n "$DOMAINS" ]; then
         for domain in $DOMAINS; do
             host -t A    "$domain" 8.8.8.8 2>/dev/null | awk '/has address/{print $4}'      >> "$TMPIPS" &
+            host -t A    "www.$domain" 8.8.8.8 2>/dev/null | awk '/has address/{print $4}'  >> "$TMPIPS" &
             host -t A    "$domain" 1.1.1.1 2>/dev/null | awk '/has address/{print $4}'      >> "$TMPIPS" &
+            host -t A    "www.$domain" 1.1.1.1 2>/dev/null | awk '/has address/{print $4}'  >> "$TMPIPS" &
             host -t AAAA "$domain" 8.8.8.8 2>/dev/null | awk '/has IPv6 address/{print $5}' >> "$TMPIPS" &
+            host -t AAAA "www.$domain" 8.8.8.8 2>/dev/null | awk '/has IPv6 address/{print $5}' >> "$TMPIPS" &
+            host -t AAAA "www.$domain" 1.1.1.1 2>/dev/null | awk '/has IPv6 address/{print $5}' >> "$TMPIPS" &
         done
         wait
     fi

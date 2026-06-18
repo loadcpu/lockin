@@ -10,6 +10,7 @@ final class ActivityTracker {
     private var currentDomain: String?
     private var currentStartTime: Date?
     private var heartbeatTimer: Timer?
+    private var browserWatcherListenerID: UUID?
 
     private let idleThreshold: TimeInterval = 180  // 3 minutes
 
@@ -35,7 +36,7 @@ final class ActivityTracker {
         nc.addObserver(self, selector: #selector(screensWaking),
                        name: NSWorkspace.screensDidWakeNotification, object: nil)
 
-        BrowserWatcher.shared.onDomainChanged = { [weak self] domain in
+        browserWatcherListenerID = BrowserWatcher.shared.addListener { [weak self] domain, _ in
             self?.handleDomainChange(to: domain)
         }
         BrowserWatcher.shared.start()
@@ -49,6 +50,10 @@ final class ActivityTracker {
         flushCurrent()
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
+        if let browserWatcherListenerID {
+            BrowserWatcher.shared.removeListener(browserWatcherListenerID)
+            self.browserWatcherListenerID = nil
+        }
         BrowserWatcher.shared.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }

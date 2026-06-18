@@ -4,12 +4,13 @@ import Foundation
 final class BrowserWatcher {
     static let shared = BrowserWatcher()
 
-    var onDomainChanged: ((String?) -> Void)?
-
     private var pollTimer: Timer?
     private(set) var currentDomain: String?
+    private(set) var currentBrowserBundleID: String?
     private var lastDomain: String?
+    private var lastBrowserBundleID: String?
     private var scriptCache: [String: NSAppleScript] = [:]
+    private var listeners: [UUID: (String?, String?) -> Void] = [:]
 
     static let bundleIDs: Set<String> = [
         "com.apple.Safari",
@@ -27,14 +28,28 @@ final class BrowserWatcher {
     private init() {}
 
     func start() {
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        guard pollTimer == nil else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in self?.poll() }
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             DispatchQueue.global(qos: .utility).async { self?.poll() }
         }
+        pollTimer?.tolerance = 0.2
     }
 
     func stop() {
         pollTimer?.invalidate()
         pollTimer = nil
+    }
+
+    @discardableResult
+    func addListener(_ listener: @escaping (String?, String?) -> Void) -> UUID {
+        let id = UUID()
+        listeners[id] = listener
+        return id
+    }
+
+    func removeListener(_ id: UUID) {
+        listeners.removeValue(forKey: id)
     }
 
     // MARK: - Polling
@@ -44,22 +59,26 @@ final class BrowserWatcher {
               let bundleID = front.bundleIdentifier,
               Self.isBrowser(bundleID)
         else {
-            maybeFireCallback(nil)
+            maybeFireCallback(domain: nil, bundleID: nil)
             return
         }
         let appName = front.localizedName ?? ""
         let urlString = bundleID == "com.apple.Safari" ? querySafari() : queryChromium(appName)
         let domain = urlString.flatMap { extractDomain($0) }
-        maybeFireCallback(domain)
+        maybeFireCallback(domain: domain, bundleID: bundleID)
     }
 
-    private func maybeFireCallback(_ domain: String?) {
+    private func maybeFireCallback(domain: String?, bundleID: String?) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            guard domain != self.lastDomain else { return }
+            guard domain != self.lastDomain || bundleID != self.lastBrowserBundleID else { return }
             self.lastDomain = domain
+            self.lastBrowserBundleID = bundleID
             self.currentDomain = domain
-            self.onDomainChanged?(domain)
+            self.currentBrowserBundleID = bundleID
+            for listener in self.listeners.values {
+                listener(domain, bundleID)
+            }
         }
     }
 
@@ -108,6 +127,6 @@ final class BrowserWatcher {
 
     private func extractDomain(_ urlString: String) -> String? {
         guard let url = URL(string: urlString), let host = url.host else { return nil }
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        return DomainMatcher.normalizeHost(host)
     }
 }
