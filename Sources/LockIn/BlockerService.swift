@@ -251,10 +251,11 @@ final class BlockerService: ObservableObject {
     private func reloadBrowserTabs() {
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
             for b in self.knownBrowsers {
-                guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).first else { continue }
+                guard NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).first != nil else { continue }
                 if !self.reloadTabs(in: b) {
-                    // Permission denied — kill the browser so open tabs can't be used to bypass blocking.
-                    app.forceTerminate()
+                    // During an active locked session, browsers that can bypass
+                    // website blocking must be closed if Automation is denied.
+                    _ = self.forceQuitBrowsers(bundleIDs: [b.bundleID])
                     self.notifyBrowserForceQuit(b.name)
                 }
             }
@@ -266,7 +267,7 @@ final class BlockerService: ObservableObject {
             guard settings.authorizationStatus == .authorized else { return }
             let content = UNMutableNotificationContent()
             content.title = "Browser closed during session"
-            content.body = "\(browserName) was closed because Lock In couldn't reload its tabs. To avoid this, allow access in System Settings → Privacy & Security → Automation."
+            content.body = "\(browserName) was closed because Automation access was denied and already-open tabs could bypass website blocking. Enable Lock In in System Settings → Privacy & Security → Automation."
             let request = UNNotificationRequest(identifier: "browser-force-quit-\(browserName)", content: content, trigger: nil)
             UNUserNotificationCenter.current().add(request) { error in
                 if let error { NSLog("LockIn: browser-force-quit notification failed: %@", error.localizedDescription) }
@@ -292,7 +293,7 @@ final class BlockerService: ObservableObject {
         """
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if let err { NSLog("LockIn: %@ reload error — force quitting: %@", browser.name, err) }
+        if let err { NSLog("LockIn: %@ reload error: %@", browser.name, err) }
         return err == nil
     }
 }

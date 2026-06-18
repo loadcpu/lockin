@@ -219,14 +219,13 @@ struct ConfigView: View {
         }
         guard !runningUnprimed.isEmpty else { return }
 
-        let closedBrowsers = BlockerService.shared.forceQuitBrowsers(bundleIDs: runningUnprimed)
-        let browserList = closedBrowsers.isEmpty
-            ? "One or more browsers"
-            : closedBrowsers.joined(separator: ", ")
+        let browserList = runningUnprimed
+            .map(BlockerService.shared.browserName(forBundleID:))
+            .joined(separator: ", ")
 
         let alert = NSAlert()
         alert.messageText = "Permission Not Granted"
-        alert.informativeText = "\(browserList) denied permission, so Lock In closed \(closedBrowsers.count == 1 ? "it" : "them") to prevent already-open tabs from bypassing website blocking.\n\nTo fix this, open System Settings → Privacy & Security → Automation and enable Lock In for each browser you use. macOS will not re-show the prompt automatically after you click Don't Allow."
+        alert.informativeText = "\(browserList) denied permission. Lock In will keep those browsers open, but already-open tabs may need a manual refresh before website blocking fully takes effect.\n\nTo fix this, open System Settings → Privacy & Security → Automation and enable Lock In for each browser you use. macOS will not re-show the prompt automatically after you click Don't Allow."
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "OK")
         if alert.runModal() == .alertFirstButtonReturn {
