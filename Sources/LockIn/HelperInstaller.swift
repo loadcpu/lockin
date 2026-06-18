@@ -9,16 +9,17 @@ enum HelperInstaller {
     private static let agentLabel   = "com.local.lockin"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
-    static func ensureInstalled() {
+    @discardableResult
+    static func ensureInstalled() -> Bool {
         if UserDefaults.standard.bool(forKey: defaultsKey) {
-            if FileManager.default.fileExists(atPath: helperPath) { return }
+            if FileManager.default.fileExists(atPath: helperPath) { return true }
             UserDefaults.standard.removeObject(forKey: defaultsKey)
         }
         if isHelperCurrent() {
             UserDefaults.standard.set(true, forKey: defaultsKey)
-            return
+            return true
         }
-        runInstaller()
+        return runInstaller()
     }
 
     static func ensureLaunchAgent() {
@@ -91,7 +92,8 @@ enum HelperInstaller {
         return content.contains(versionTag)
     }
 
-    private static func runInstaller() {
+    @discardableResult
+    private static func runInstaller() -> Bool {
         let stagingPath = "/tmp/lockin-hosts-staging"
         let scriptPath  = "/tmp/lockin-install.sh"
         let user = NSUserName()
@@ -112,24 +114,30 @@ enum HelperInstaller {
               (try? installScript.write(toFile: scriptPath, atomically: true, encoding: .utf8)) != nil
         else {
             showAlert()
-            return
+            return false
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        var installOK = false
+        let runInstall = {
             let src = "do shell script \"bash \(scriptPath)\" with administrator privileges"
             var err: NSDictionary?
             NSAppleScript(source: src)?.executeAndReturnError(&err)
             try? FileManager.default.removeItem(atPath: scriptPath)
             try? FileManager.default.removeItem(atPath: stagingPath)
 
-            DispatchQueue.main.async {
-                if err != nil {
-                    showAlert()
-                } else {
-                    UserDefaults.standard.set(true, forKey: defaultsKey)
-                }
+            if err != nil {
+                showAlert()
+            } else {
+                UserDefaults.standard.set(true, forKey: defaultsKey)
+                installOK = true
             }
         }
+        if Thread.isMainThread {
+            runInstall()
+        } else {
+            DispatchQueue.main.sync(execute: runInstall)
+        }
+        return installOK
     }
 
     private static func showAlert() {

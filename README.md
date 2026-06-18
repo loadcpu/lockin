@@ -6,6 +6,10 @@ Free. Local-first. No account. No subscription. No telemetry.
 
 ## Install
 
+Download the latest `LockIn.zip` from GitHub Releases, unzip it, and move `Lock In.app` into `/Applications`.
+
+Or install from Terminal:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | bash
 ```
@@ -24,13 +28,13 @@ Requires macOS 13 Ventura or later on Apple Silicon or Intel.
 This is the release path a real user should take:
 
 1. Open the GitHub repo.
-2. Copy the install command.
-3. Run it in Terminal.
-4. Let the script download `LockIn.zip`.
-5. Confirm `Lock In.app` lands in `/Applications`.
+2. Download `LockIn.zip` from the latest release, or copy the install command.
+3. Unzip it and move `Lock In.app` to `/Applications`, or run the Terminal installer.
+4. Open `Lock In.app`.
+5. Let macOS confirm the app should open.
 6. Launch the app.
-7. Approve the one-time admin prompt for website blocking.
-8. Start a short focus session and verify blocked apps and websites actually fail.
+7. Start a short focus session and verify blocked apps and websites actually fail.
+8. Approve the one-time admin prompt only if you use website blocking.
 
 ## Build From Source
 
@@ -115,10 +119,10 @@ Lock In may ask for:
 
 The minimum real-user test matrix is:
 
-1. Fresh install from the `curl` command.
-2. Zip download and unzip path.
+1. Fresh install from the release zip.
+2. Terminal install from the `curl` command.
 3. First launch from `/Applications/Lock In.app`.
-4. Helper installation prompt.
+4. Helper installation prompt only when website blocking is used.
 5. App blocking during an active timer.
 6. Website blocking in Safari and one Chromium browser.
 7. Browser permission denial and recovery flow.
@@ -133,9 +137,9 @@ The most realistic way to test install and first-run behavior is:
 1. Use a separate macOS user account or a spare Mac.
 2. Make sure `/Applications/Lock In.app` does not exist.
 3. Make sure `/usr/local/bin/lockin-hosts` and `/etc/sudoers.d/lockin` do not exist.
-4. Open the GitHub repo in a browser.
-5. Copy the README install command and run it in Terminal.
-6. Confirm the script downloads `LockIn.zip`, installs `Lock In.app`, and opens it.
+4. Open the GitHub releases page in a browser.
+5. Download `LockIn.zip`, unzip it, and move `Lock In.app` into `/Applications`.
+6. Confirm the app opens successfully.
 7. Start a short session with one blocked app and one blocked website.
 8. Verify the admin prompt appears only when website blocking is needed.
 9. Verify app blocking, website blocking, relaunch behavior, and uninstall.

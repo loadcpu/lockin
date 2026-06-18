@@ -2,6 +2,8 @@
 set -e
 
 STAGING=".build/Lock In.app"
+APP_VERSION="${LOCKIN_VERSION:-1.0}"
+APP_BUILD="${LOCKIN_BUILD:-1}"
 
 echo "Building…"
 swift build -c release 2>&1
@@ -17,7 +19,7 @@ mkdir -p "$STAGING/Contents/Resources"
 cp .build/release/LockIn "$STAGING/Contents/MacOS/LockIn"
 cp AppIcon.icns "$STAGING/Contents/Resources/AppIcon.icns"
 
-cat > "$STAGING/Contents/Info.plist" << 'PLIST'
+cat > "$STAGING/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -33,9 +35,9 @@ cat > "$STAGING/Contents/Info.plist" << 'PLIST'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>${APP_BUILD}</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSPrincipalClass</key>

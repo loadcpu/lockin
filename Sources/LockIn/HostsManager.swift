@@ -9,6 +9,7 @@ struct HostsManager {
     @discardableResult
     static func applyBlocks(domains: [String]) -> Bool {
         guard !domains.isEmpty else { return true }
+        guard HelperInstaller.ensureInstalled() else { return false }
 
         var lines = [beginMark]
         for domain in domains {
