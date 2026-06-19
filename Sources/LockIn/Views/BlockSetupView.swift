@@ -27,6 +27,35 @@ struct BlockSetupView: View {
         !durationOptions.contains(selectedMinutes)
     }
 
+    private var selectedHours: Int {
+        selectedMinutes / 60
+    }
+
+    private var selectedRemainingMinutes: Int {
+        selectedMinutes % 60
+    }
+
+    private var hoursText: Binding<String> {
+        Binding(
+            get: { String(format: "%02d", selectedHours) },
+            set: { updateSelectedDuration(hours: $0, minutes: minutesText.wrappedValue, seconds: secondsText.wrappedValue) }
+        )
+    }
+
+    private var minutesText: Binding<String> {
+        Binding(
+            get: { String(format: "%02d", selectedRemainingMinutes) },
+            set: { updateSelectedDuration(hours: hoursText.wrappedValue, minutes: $0, seconds: secondsText.wrappedValue) }
+        )
+    }
+
+    private var secondsText: Binding<String> {
+        Binding(
+            get: { "00" },
+            set: { updateSelectedDuration(hours: hoursText.wrappedValue, minutes: minutesText.wrappedValue, seconds: $0) }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -136,59 +165,38 @@ struct BlockSetupView: View {
     }
 
     private var timerStep: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 6) {
+        VStack(spacing: 34) {
+            VStack(spacing: 20) {
+                HStack(spacing: 100) {
+                    timeLabel("hr")
+                    timeLabel("min")
+                    timeLabel("sec")
+                }
+
+                HStack(alignment: .center, spacing: 10) {
+                    timeField(hoursText)
+                    timeSeparator
+                    timeField(minutesText)
+                    timeSeparator
+                    timeField(secondsText)
+                }
+            }
+
+            VStack(spacing: 14) {
                 Text("Session length")
-                    .font(.title3.weight(.semibold))
-                Text("Choose how long this block should stay active.")
-                    .font(.body)
+                    .font(.headline.weight(.semibold))
                     .foregroundColor(.secondary)
-            }
 
-            HStack(spacing: 10) {
-                ForEach(durationOptions, id: \.self) { mins in
-                    Button {
-                        selectedMinutes = mins
-                        isCustomFieldFocused = false
-                    } label: {
-                        Text("\(mins) min")
-                    }
-                    .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Custom")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(isCustomSelected ? blockSetupAccentBlue : .secondary)
-
-                HStack(spacing: 8) {
-                    TextField("Type minutes", text: $customText)
-                        .textFieldStyle(.plain)
-                        .font(.title3.monospacedDigit())
-                        .focused($isCustomFieldFocused)
-                        .onChange(of: customText) { val in
-                            let digits = val.filter(\.isNumber)
-                            if digits != val { customText = digits }
-                            if let m = Int(digits), m > 0 {
-                                selectedMinutes = min(m, 1440)
-                            }
+                HStack(spacing: 10) {
+                    ForEach(durationOptions, id: \.self) { mins in
+                        Button {
+                            selectedMinutes = mins
+                            isCustomFieldFocused = false
+                        } label: {
+                            Text("\(mins) min")
                         }
-
-                    Text("min")
-                        .font(.body.weight(.medium))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 14)
-                .frame(width: 220, height: 48)
-                .background(isCustomSelected ? blockSetupAccentBlue.opacity(0.16) : Color(NSColor.controlBackgroundColor))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isCustomSelected ? blockSetupAccentBlue : Color(NSColor.separatorColor), lineWidth: 1)
-                )
-                .cornerRadius(12)
-                .onTapGesture {
-                    isCustomFieldFocused = true
+                        .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
+                    }
                 }
             }
 
@@ -196,11 +204,11 @@ struct BlockSetupView: View {
                 .font(.headline)
                 .foregroundColor(.secondary)
 
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.top, 52)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private var configSection: some View {
@@ -492,6 +500,48 @@ struct BlockSetupView: View {
                 self.isLoadingItems = false
             }
         }
+    }
+
+    private func updateSelectedDuration(hours: String, minutes: String, seconds: String) {
+        let sanitizedHours = sanitizeTimePart(hours, maxLength: 2)
+        let sanitizedMinutes = sanitizeTimePart(minutes, maxLength: 2)
+        let sanitizedSeconds = sanitizeTimePart(seconds, maxLength: 2)
+
+        let hoursValue = min(Int(sanitizedHours) ?? 0, 23)
+        let minutesValue = min(Int(sanitizedMinutes) ?? 0, 59)
+        let secondsValue = min(Int(sanitizedSeconds) ?? 0, 59)
+        let totalMinutes = hoursValue * 60 + minutesValue + (secondsValue > 0 ? 1 : 0)
+
+        selectedMinutes = max(1, min(totalMinutes, 1440))
+        customText = "\(selectedMinutes)"
+    }
+
+    private func sanitizeTimePart(_ value: String, maxLength: Int) -> String {
+        String(value.filter(\.isNumber).prefix(maxLength))
+    }
+
+    private func timeLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.title2.weight(.semibold))
+            .foregroundColor(.secondary)
+            .frame(width: 170)
+    }
+
+    private var timeSeparator: some View {
+        Text(":")
+            .font(.system(size: 98, weight: .ultraLight, design: .rounded))
+            .foregroundColor(.white.opacity(0.9))
+            .offset(y: -8)
+    }
+
+    private func timeField(_ binding: Binding<String>) -> some View {
+        TextField("00", text: binding)
+            .textFieldStyle(.plain)
+            .font(.system(size: 108, weight: .ultraLight, design: .rounded))
+            .monospacedDigit()
+            .multilineTextAlignment(.center)
+            .frame(width: 170)
+            .focused($isCustomFieldFocused)
     }
 }
 
