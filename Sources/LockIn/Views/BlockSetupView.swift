@@ -1,6 +1,8 @@
 import SwiftUI
 import AppKit
 
+private let blockSetupAccentBlue = Color(nsColor: .controlAccentColor)
+
 struct BlockSetupView: View {
     let onStart: (_ minutes: Int, _ apps: [String], _ websites: [String]) -> Void
     let onCancel: () -> Void
@@ -55,7 +57,7 @@ struct BlockSetupView: View {
                     .frame(width: 38)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 6)
-                    .background(isCustomSelected ? Color.blue : Color(NSColor.controlBackgroundColor))
+                    .background(isCustomSelected ? blockSetupAccentBlue : Color(NSColor.controlBackgroundColor))
                     .foregroundColor(isCustomSelected ? .white : .primary)
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1))
@@ -213,7 +215,7 @@ struct BlockSetupView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(checkedTotal == 0)
-                .tint(Color(red: 0.10, green: 0.22, blue: 0.82))
+                .tint(blockSetupAccentBlue)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
@@ -375,7 +377,7 @@ private struct DurationButtonStyle: ButtonStyle {
             .font(.subheadline.weight(selected ? .semibold : .regular))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(selected ? Color.blue : Color(NSColor.controlBackgroundColor))
+            .background(selected ? blockSetupAccentBlue : Color(NSColor.controlBackgroundColor))
             .foregroundColor(selected ? .white : .primary)
             .cornerRadius(8)
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1))
