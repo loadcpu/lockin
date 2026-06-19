@@ -9,74 +9,81 @@ struct BlockSetupView: View {
 
     @ObservedObject private var service = BlockerService.shared
     @State private var selectedMinutes = 60
-    @State private var customText = "60"
+    @State private var customText = ""
     @State private var items: [BlockItem] = []
     @State private var checked: Set<String> = []
     @State private var isLoadingItems = true
+    @FocusState private var isCustomFieldFocused: Bool
 
-    private let durationOptions: [(Int, String)] = [
-        (25, "25"),
-        (60, "60"),
-        (90, "90")
-    ]
+    private let durationOptions = [25, 60, 90]
+    private enum SetupStep: String, CaseIterable {
+        case list = "List"
+        case timer = "Timer"
+    }
+    @State private var step: SetupStep = .list
 
     private var isCustomSelected: Bool {
-        !durationOptions.contains { $0.0 == selectedMinutes }
+        !durationOptions.contains(selectedMinutes)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            durationRow
+            stepTabs
+                .padding(.top, 18)
+                .padding(.bottom, 14)
             Divider()
-            itemList
+            content
             Divider()
             actionBar
         }
-        .frame(width: 620, height: 700)
+        .frame(width: 620, height: 640)
         .onAppear(perform: loadItems)
     }
 
-    // MARK: - Duration
-
-    private var durationRow: some View {
-        HStack(spacing: 8) {
-            Text("Duration")
-                .font(.body.weight(.bold))
-                .foregroundColor(.secondary)
+    private var stepTabs: some View {
+        HStack {
             Spacer()
-            ForEach(durationOptions, id: \.0) { mins, label in
-                Button(label) {
-                    selectedMinutes = mins
-                    customText = "\(mins)"
-                }
-                .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
-            }
-            HStack(spacing: 3) {
-                TextField("", text: $customText)
-                    .textFieldStyle(.plain)
-                    .font(.body.monospacedDigit())
-                    .multilineTextAlignment(.center)
-                    .frame(width: 38)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 6)
-                    .background(isCustomSelected ? blockSetupAccentBlue : Color(NSColor.controlBackgroundColor))
-                    .foregroundColor(isCustomSelected ? .white : .primary)
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1))
-                    .onChange(of: customText) { val in
-                        let digits = val.filter(\.isNumber)
-                        if digits != val { customText = digits }
-                        if let m = Int(digits), m > 0 {
-                            selectedMinutes = min(m, 1440)
+            HStack(spacing: 0) {
+                ForEach(SetupStep.allCases, id: \.self) { current in
+                    Button {
+                        guard current != .timer || checkedTotal > 0 else { return }
+                        step = current
+                        if current == .list {
+                            isCustomFieldFocused = false
                         }
+                    } label: {
+                        Text(current.rawValue)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(tabForeground(for: current))
+                            .frame(width: 120, height: 32)
+                            .background(tabBackground(for: current))
                     }
-                Text("m")
-                    .font(.body)
-                    .foregroundColor(.secondary)
+                    .buttonStyle(.plain)
+                    .disabled(current == .timer && checkedTotal == 0)
+
+                    if current != SetupStep.allCases.last {
+                        Divider()
+                            .frame(height: 18)
+                    }
+                }
             }
+            .background(Color.white.opacity(0.08))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+            Spacer()
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+    }
+
+    private var content: some View {
+        Group {
+            switch step {
+            case .list:
+                itemList
+            case .timer:
+                timerStep
+            }
+        }
     }
 
     // MARK: - Items list
@@ -118,6 +125,74 @@ struct BlockSetupView: View {
                 .frame(maxHeight: .infinity)
             }
         }
+    }
+
+    private var timerStep: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Session length")
+                    .font(.title3.weight(.semibold))
+                Text("Choose how long this block should stay active.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                ForEach(durationOptions, id: \.self) { mins in
+                    Button {
+                        selectedMinutes = mins
+                        isCustomFieldFocused = false
+                    } label: {
+                        Text("\(mins) min")
+                    }
+                    .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Custom")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(isCustomSelected ? blockSetupAccentBlue : .secondary)
+
+                HStack(spacing: 8) {
+                    TextField("Type minutes", text: $customText)
+                        .textFieldStyle(.plain)
+                        .font(.title3.monospacedDigit())
+                        .focused($isCustomFieldFocused)
+                        .onChange(of: customText) { val in
+                            let digits = val.filter(\.isNumber)
+                            if digits != val { customText = digits }
+                            if let m = Int(digits), m > 0 {
+                                selectedMinutes = min(m, 1440)
+                            }
+                        }
+
+                    Text("min")
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .frame(width: 220, height: 48)
+                .background(isCustomSelected ? blockSetupAccentBlue.opacity(0.16) : Color(NSColor.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isCustomSelected ? blockSetupAccentBlue : Color(NSColor.separatorColor), lineWidth: 1)
+                )
+                .cornerRadius(12)
+                .onTapGesture {
+                    isCustomFieldFocused = true
+                }
+            }
+
+            Text("Selected: \(selectedMinutes) minutes")
+                .font(.headline)
+                .foregroundColor(.secondary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var configSection: some View {
@@ -232,12 +307,28 @@ struct BlockSetupView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.secondary)
                 Spacer()
-                Button("Start") {
-                    confirmAndStart()
+                if step == .list {
+                    Button("Next") {
+                        step = .timer
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(checkedTotal == 0)
+                    .tint(blockSetupAccentBlue)
+                } else {
+                    Button("Back") {
+                        step = .list
+                        isCustomFieldFocused = false
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+
+                    Button("Start") {
+                        confirmAndStart()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(checkedTotal == 0)
+                    .tint(blockSetupAccentBlue)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(checkedTotal == 0)
-                .tint(blockSetupAccentBlue)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
@@ -245,6 +336,9 @@ struct BlockSetupView: View {
     }
 
     private func confirmAndStart() {
+        guard selectedMinutes > 0 else { return }
+        isCustomFieldFocused = false
+
         guard selectedMinutes > 120 else {
             onStart(selectedMinutes, checkedApps, checkedSites)
             return
@@ -260,6 +354,16 @@ struct BlockSetupView: View {
         if alert.runModal() == .alertFirstButtonReturn {
             onStart(selectedMinutes, checkedApps, checkedSites)
         }
+    }
+
+    private func tabBackground(for step: SetupStep) -> some View {
+        Capsule()
+            .fill(self.step == step ? Color.white.opacity(0.16) : Color.clear)
+            .padding(2)
+    }
+
+    private func tabForeground(for step: SetupStep) -> Color {
+        self.step == step ? .primary : .secondary
     }
 
     // MARK: - Data loading
@@ -398,15 +502,19 @@ private struct BlockItem: Identifiable {
 
 private struct DurationButtonStyle: ButtonStyle {
     let selected: Bool
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(selected ? .semibold : .regular))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             .background(selected ? blockSetupAccentBlue : Color(NSColor.controlBackgroundColor))
             .foregroundColor(selected ? .white : .primary)
-            .cornerRadius(8)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(NSColor.separatorColor), lineWidth: 1))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(selected ? blockSetupAccentBlue : Color(NSColor.separatorColor), lineWidth: 1)
+            )
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
