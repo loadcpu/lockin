@@ -16,7 +16,7 @@ struct FocusCalendarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("FOCUS HISTORY")
-                .font(.caption.bold())
+                .font(.footnote.bold())
                 .foregroundColor(.secondary)
                 .tracking(0.5)
 
@@ -30,16 +30,16 @@ struct FocusCalendarView: View {
 
     private var yearView: some View {
         let weeks = buildWeeks()
-        let size: CGFloat = 10
-        let gap: CGFloat = 2
+        let size: CGFloat = 12
+        let gap: CGFloat = 3
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: gap) {
                 VStack(spacing: gap) {
                     ForEach(0..<7, id: \.self) { i in
                         Text(i == 1 || i == 3 || i == 5 ? dayLabels[i] : "")
-                            .font(.system(size: 7))
+                            .font(.system(size: 9))
                             .foregroundColor(.secondary)
-                            .frame(width: 8, height: size)
+                            .frame(width: 10, height: size)
                     }
                 }
                 ForEach(Array(weeks.enumerated()), id: \.0) { _, week in
@@ -77,17 +77,17 @@ struct FocusCalendarView: View {
                 let d = data[date] ?? 0
                 Text(d > 0 ? "\(dateFmt.string(from: date)): \(d.formattedDuration) focused"
                            : "\(dateFmt.string(from: date)): No focus")
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Text("Less").font(.system(size: 9)).foregroundColor(.secondary)
+            Text("Less").font(.system(size: 11)).foregroundColor(.secondary)
             ForEach(Array([0.0, 0.25, 0.5, 0.75, 1.0].enumerated()), id: \.0) { _, t in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(t == 0 ? Color.gray.opacity(0.15) : green.opacity(0.15 + t * 0.85))
-                    .frame(width: 10, height: 10)
+                    .frame(width: 12, height: 12)
             }
-            Text("More").font(.system(size: 9)).foregroundColor(.secondary)
+            Text("More").font(.system(size: 11)).foregroundColor(.secondary)
         }
     }
 

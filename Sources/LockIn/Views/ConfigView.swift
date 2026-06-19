@@ -20,7 +20,7 @@ struct ConfigView: View {
                 }
             }
         }
-        .frame(width: 520, height: 500)
+        .frame(width: 560, height: 540)
     }
 
     private var tabPicker: some View {
@@ -73,6 +73,7 @@ struct ConfigView: View {
                         .resizable()
                         .frame(width: 24, height: 24)
                     Text(app.name)
+                        .font(.body)
                     Spacer()
                     Toggle("", isOn: blockedAppBinding(app.name))
                         .labelsHidden()
@@ -87,7 +88,7 @@ struct ConfigView: View {
             HStack {
                 let count = service.config.blockedApps.count
                 Text(count == 0 ? "No apps selected" : "\(count) app\(count == 1 ? "" : "s") will be killed during sessions")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
             }
@@ -118,6 +119,7 @@ struct ConfigView: View {
                             .foregroundColor(.blue)
                             .frame(width: 20)
                         Text(site)
+                            .font(.body)
                         Spacer()
                         Button(action: {
                             service.config.blockedWebsites.removeAll { $0 == site }
@@ -144,7 +146,7 @@ struct ConfigView: View {
                 }
                 if !websiteError.isEmpty {
                     Text(websiteError)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundColor(.red)
                 }
             }
@@ -156,19 +158,19 @@ struct ConfigView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Instant tab blocking")
-                        .font(.caption)
+                        .font(.footnote)
                         .fontWeight(.medium)
                     Text(service.primedBrowserIDs.isEmpty
                         ? "Not set up — open browsers, then tap Setup"
                         : "\(service.primedBrowserIDs.count) browser\(service.primedBrowserIDs.count == 1 ? "" : "s") authorised")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundColor(service.primedBrowserIDs.isEmpty ? .orange : .secondary)
                 }
                 Spacer()
                 Button("Setup…") {
                     grantBrowserPermissions()
                 }
-                .font(.caption)
+                .font(.footnote)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -240,9 +242,9 @@ struct ConfigView: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Daily screen-time alerts")
-                    .font(.subheadline.bold())
+                    .font(.headline)
                 Text("Get a notification when you exceed a category limit today. Resets at midnight.")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -258,7 +260,7 @@ struct ConfigView: View {
                             .frame(width: 20)
                             .foregroundColor(cat.color)
                         Text(cat.rawValue)
-                            .font(.subheadline)
+                            .font(.body)
                         Spacer()
                         Picker("", selection: limitBinding(cat)) {
                             ForEach(limitPresets, id: \.0) { mins, label in
@@ -280,7 +282,7 @@ struct ConfigView: View {
                     (service.config.categoryLimits[$0.rawValue] ?? 0) > 0
                 }.count
                 Text(active == 0 ? "No limits set" : "\(active) limit\(active == 1 ? "" : "s") active")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
             }

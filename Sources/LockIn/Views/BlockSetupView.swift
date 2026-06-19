@@ -30,7 +30,7 @@ struct BlockSetupView: View {
             Divider()
             actionBar
         }
-        .frame(width: 560, height: 660)
+        .frame(width: 620, height: 700)
         .onAppear(perform: loadItems)
     }
 
@@ -39,7 +39,7 @@ struct BlockSetupView: View {
     private var durationRow: some View {
         HStack(spacing: 8) {
             Text("Duration")
-                .font(.subheadline)
+                .font(.body)
                 .foregroundColor(.secondary)
             Spacer()
             ForEach(durationOptions, id: \.0) { mins, label in
@@ -52,7 +52,7 @@ struct BlockSetupView: View {
             HStack(spacing: 3) {
                 TextField("", text: $customText)
                     .textFieldStyle(.plain)
-                    .font(.subheadline.monospacedDigit())
+                    .font(.body.monospacedDigit())
                     .multilineTextAlignment(.center)
                     .frame(width: 38)
                     .padding(.horizontal, 4)
@@ -69,7 +69,7 @@ struct BlockSetupView: View {
                         }
                     }
                 Text("m")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundColor(.secondary)
             }
         }
@@ -85,7 +85,7 @@ struct BlockSetupView: View {
                 VStack(spacing: 10) {
                     ProgressView()
                     Text("Loading apps and websites…")
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -96,10 +96,10 @@ struct BlockSetupView: View {
                         .font(.system(size: 32))
                         .foregroundColor(.secondary.opacity(0.4))
                     Text("No apps or websites configured")
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundColor(.secondary)
                     Text("Add items in Configure first.")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -137,7 +137,7 @@ struct BlockSetupView: View {
     private func sectionHeader(_ text: String) -> some View {
         HStack {
             Text(text)
-                .font(.caption2.bold())
+                .font(.footnote.bold())
                 .foregroundColor(.secondary)
                 .tracking(0.5)
             Spacer()
@@ -170,7 +170,7 @@ struct BlockSetupView: View {
     private func subsectionHeader(_ text: String) -> some View {
         HStack {
             Text(text)
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundColor(.secondary.opacity(0.9))
             Spacer()
         }
@@ -200,13 +200,13 @@ struct BlockSetupView: View {
             .frame(width: 20, height: 20)
 
             Text(item.displayName)
-                .font(.subheadline)
+                .font(.body)
                 .lineLimit(1)
 
             Spacer()
 
             Text(item.category.rawValue)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundColor(item.category.color)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
@@ -399,7 +399,7 @@ private struct DurationButtonStyle: ButtonStyle {
     let selected: Bool
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(selected ? .semibold : .regular))
+            .font(.body.weight(selected ? .semibold : .regular))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(selected ? blockSetupAccentBlue : Color(NSColor.controlBackgroundColor))

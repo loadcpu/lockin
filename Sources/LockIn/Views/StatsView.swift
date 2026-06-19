@@ -63,7 +63,7 @@ struct StatsView: View {
                 }
             }
         }
-        .frame(width: 600, height: 580)
+        .frame(width: 640, height: 620)
         .onAppear(perform: reload)
         .onChange(of: range) { _ in
             reload()
@@ -97,7 +97,7 @@ struct StatsView: View {
                     }
                 }
                 .buttonStyle(.borderless)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundColor(.secondary)
             }
             Picker("", selection: Binding(
@@ -143,7 +143,7 @@ struct StatsView: View {
         let green = Color(red: 0.20, green: 0.78, blue: 0.35)
         return VStack(alignment: .leading, spacing: 10) {
             Text(rangeLabel)
-                .font(.caption.bold())
+                .font(.footnote.bold())
                 .foregroundColor(.secondary)
                 .tracking(0.5)
 
@@ -154,7 +154,7 @@ struct StatsView: View {
                             .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundColor(green)
                         Text("focused")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -163,7 +163,7 @@ struct StatsView: View {
                             .font(.system(size: 18, weight: .semibold, design: .rounded).monospacedDigit())
                             .foregroundColor(.primary.opacity(0.5))
                         Text("screen time")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundColor(.secondary)
                     }
                 } else {
@@ -171,7 +171,7 @@ struct StatsView: View {
                         Text(totalDuration.formattedDuration)
                             .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
                         Text("screen time")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -191,7 +191,7 @@ struct StatsView: View {
                     }
                     .frame(height: 4)
                     Text("\(Int((ratio * 100).rounded()))% of screen time focused")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                 }
             }
@@ -224,8 +224,8 @@ struct StatsView: View {
 
     private func streakChip(_ label: String, value: Int, color: Color, emoji: String) -> some View {
         HStack(spacing: 5) {
-            Text("\(emoji) \(value)d").font(.caption.bold()).foregroundColor(color)
-            Text(label).font(.caption).foregroundColor(.secondary)
+            Text("\(emoji) \(value)d").font(.footnote.bold()).foregroundColor(color)
+            Text(label).font(.footnote).foregroundColor(.secondary)
         }
     }
 
@@ -248,8 +248,8 @@ struct StatsView: View {
     private func productivityChip(_ name: String, duration: TimeInterval, color: Color) -> some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(name).font(.caption).foregroundColor(.secondary)
-            Text(duration.formattedDuration).font(.caption.bold())
+            Text(name).font(.footnote).foregroundColor(.secondary)
+            Text(duration.formattedDuration).font(.footnote.bold())
         }
     }
 
@@ -330,7 +330,7 @@ struct StatsView: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundColor(.secondary)
                 Text(pct(usage.duration))
-                    .font(.caption.monospacedDigit())
+                    .font(.footnote.monospacedDigit())
                     .foregroundColor(.secondary)
                     .frame(width: 36, alignment: .trailing)
             }
@@ -386,7 +386,7 @@ struct StatsView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.caption.bold())
+            .font(.footnote.bold())
             .foregroundColor(.secondary)
             .tracking(0.5)
     }
@@ -478,7 +478,7 @@ private struct AppRow: View {
             iconView.frame(width: 28, height: 28)
 
             Text(usage.displayName)
-                .font(.subheadline)
+                .font(.body)
                 .lineLimit(1)
 
             Spacer()
@@ -520,7 +520,7 @@ private struct AppRow: View {
         } label: {
             HStack(spacing: 4) {
                 Circle().fill(category.color).frame(width: 7, height: 7)
-                Text(category.rawValue).font(.caption).foregroundColor(.secondary)
+                Text(category.rawValue).font(.footnote).foregroundColor(.secondary)
                 Image(systemName: "chevron.down").font(.system(size: 8)).foregroundColor(.secondary)
             }
             .padding(.horizontal, 7).padding(.vertical, 4)

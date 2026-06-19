@@ -32,7 +32,7 @@ struct DashboardView: View {
             Divider().padding(.horizontal, 20)
             bottomBar
         }
-        .frame(width: 300)
+        .frame(width: 340)
         .onAppear { refreshStats() }
         .onChange(of: store.todayTotal) { _ in refreshStats() }
     }
@@ -50,7 +50,7 @@ struct DashboardView: View {
                 .frame(width: 72, height: 72)
                 .padding(.top, 28)
             Text("Lock In")
-                .font(.title3.bold())
+                .font(.title2.bold())
         }
     }
 
@@ -68,13 +68,13 @@ struct DashboardView: View {
     private var blockingStatus: some View {
         VStack(spacing: 6) {
             Text("SESSION ACTIVE")
-                .font(.caption.bold())
+                .font(.footnote.bold())
                 .foregroundColor(.red)
                 .tracking(1)
             Text(service.remainingTimeString)
                 .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
             Text("remaining")
-                .font(.caption)
+                .font(.footnote)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -90,7 +90,7 @@ struct DashboardView: View {
                 systemImage: service.hasLimitRestrictions ? "lock.fill" : "checkmark.circle.fill"
             )
                 .foregroundColor(service.hasLimitRestrictions ? .orange : .green)
-                .font(.subheadline)
+                .font(.body)
             Button(action: onStartBlocking) {
                 Text("Start Blocking")
                     .frame(maxWidth: .infinity)
@@ -107,23 +107,23 @@ struct DashboardView: View {
         VStack(spacing: 8) {
             HStack {
                 Text("TODAY")
-                    .font(.caption2.bold())
+                    .font(.footnote.bold())
                     .foregroundColor(.secondary)
                     .tracking(0.6)
                 Spacer()
                 Button("View Details →") { onViewStats() }
                     .buttonStyle(.plain)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundColor(dashboardLinkBlue)
             }
 
             if focusToday > 0 {
                 HStack(alignment: .bottom, spacing: 6) {
                     Text(focusToday.formattedDuration)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(Color(red: 0.20, green: 0.78, blue: 0.35))
                     Text("focus time")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                         .padding(.bottom, 3)
                     Spacer()
@@ -131,7 +131,7 @@ struct DashboardView: View {
             } else {
                 HStack {
                     Text("No focus sessions yet today")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                     Spacer()
                 }
@@ -149,7 +149,7 @@ struct DashboardView: View {
             Button("Configure", action: onConfigure)
                 .buttonStyle(.plain)
                 .foregroundColor(.secondary)
-                .font(.subheadline)
+                .font(.body)
             Spacer()
             Button("Quit") {
                 if service.isBlocking {
@@ -165,7 +165,7 @@ struct DashboardView: View {
             }
                 .buttonStyle(.plain)
                 .foregroundColor(.secondary)
-                .font(.subheadline)
+                .font(.body)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 14)
