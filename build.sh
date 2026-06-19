@@ -4,9 +4,28 @@ set -e
 STAGING=".build/Lock In.app"
 APP_VERSION="${LOCKIN_VERSION:-1.0}"
 APP_BUILD="${LOCKIN_BUILD:-1}"
+WORKDIR="$(pwd)"
+MODULE_CACHE_ROOT="$WORKDIR/.build/module-cache"
+CLANG_CACHE="$MODULE_CACHE_ROOT/clang"
+SWIFTPM_CACHE="$MODULE_CACHE_ROOT/swiftpm"
+
+mkdir -p "$CLANG_CACHE" "$SWIFTPM_CACHE"
+
+run_swift_build() {
+    CLANG_MODULE_CACHE_PATH="$CLANG_CACHE" \
+    SWIFTPM_MODULECACHE_OVERRIDE="$SWIFTPM_CACHE" \
+    swift build -c release 2>&1
+}
 
 echo "Building…"
-swift build -c release 2>&1
+if ! run_swift_build; then
+    echo ""
+    echo "Build failed."
+    echo "If you see a Swift/SDK mismatch, reinstall or switch to a matching Apple toolchain."
+    echo "Current developer dir: $(xcode-select -p 2>/dev/null || echo unavailable)"
+    echo "Current Swift: $(swift --version 2>/dev/null | head -n 1 || echo unavailable)"
+    exit 1
+fi
 
 echo "Generating icon…"
 swift generate_icon.swift 2>&1 | grep -v "^$"

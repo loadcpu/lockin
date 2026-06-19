@@ -42,15 +42,120 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func setupMainMenu() {
-        let appMenu = NSMenu()
-        let quitItem = NSMenuItem(title: "Quit Lock In", action: #selector(handleQuit), keyEquivalent: "q")
+        let mainMenu = NSMenu()
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Lock In"
+
+        mainMenu.addItem(makeAppMenuItem(appName: appName))
+        mainMenu.addItem(makeFileMenuItem())
+        mainMenu.addItem(makeEditMenuItem())
+        mainMenu.addItem(makeWindowMenuItem())
+
+        NSApp.mainMenu = mainMenu
+    }
+
+    private func makeAppMenuItem(appName: String) -> NSMenuItem {
+        let appMenu = NSMenu(title: appName)
+
+        let aboutItem = NSMenuItem(title: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        aboutItem.target = NSApp
+        appMenu.addItem(aboutItem)
+        appMenu.addItem(.separator())
+
+        let hideItem = NSMenuItem(title: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        hideItem.target = NSApp
+        appMenu.addItem(hideItem)
+
+        let hideOthersItem = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthersItem.target = NSApp
+        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(hideOthersItem)
+
+        let showAllItem = NSMenuItem(title: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        showAllItem.target = NSApp
+        appMenu.addItem(showAllItem)
+        appMenu.addItem(.separator())
+
+        let quitItem = NSMenuItem(title: "Quit \(appName)", action: #selector(handleQuit), keyEquivalent: "q")
         quitItem.target = self
         appMenu.addItem(quitItem)
+
         let appMenuItem = NSMenuItem()
         appMenuItem.submenu = appMenu
-        let mainMenu = NSMenu()
-        mainMenu.addItem(appMenuItem)
-        NSApp.mainMenu = mainMenu
+        return appMenuItem
+    }
+
+    private func makeFileMenuItem() -> NSMenuItem {
+        let fileMenu = NSMenu(title: "File")
+
+        let closeItem = NSMenuItem(title: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        closeItem.target = nil
+        fileMenu.addItem(closeItem)
+
+        let fileMenuItem = NSMenuItem()
+        fileMenuItem.submenu = fileMenu
+        return fileMenuItem
+    }
+
+    private func makeEditMenuItem() -> NSMenuItem {
+        let editMenu = NSMenu(title: "Edit")
+
+        let undoItem = NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        undoItem.target = nil
+        editMenu.addItem(undoItem)
+
+        let redoItem = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        redoItem.target = nil
+        editMenu.addItem(redoItem)
+
+        editMenu.addItem(.separator())
+
+        let cutItem = NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        cutItem.target = nil
+        editMenu.addItem(cutItem)
+
+        let copyItem = NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        copyItem.target = nil
+        editMenu.addItem(copyItem)
+
+        let pasteItem = NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        pasteItem.target = nil
+        editMenu.addItem(pasteItem)
+
+        let deleteItem = NSMenuItem(title: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
+        deleteItem.target = nil
+        editMenu.addItem(deleteItem)
+
+        let selectAllItem = NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        selectAllItem.target = nil
+        editMenu.addItem(selectAllItem)
+
+        let editMenuItem = NSMenuItem()
+        editMenuItem.submenu = editMenu
+        return editMenuItem
+    }
+
+    private func makeWindowMenuItem() -> NSMenuItem {
+        let windowMenu = NSMenu(title: "Window")
+
+        let minimizeItem = NSMenuItem(title: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        minimizeItem.target = nil
+        windowMenu.addItem(minimizeItem)
+
+        let zoomItem = NSMenuItem(title: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        zoomItem.target = nil
+        windowMenu.addItem(zoomItem)
+
+        windowMenu.addItem(.separator())
+
+        let bringAllToFrontItem = NSMenuItem(title: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        bringAllToFrontItem.target = NSApp
+        windowMenu.addItem(bringAllToFrontItem)
+
+        NSApp.windowsMenu = windowMenu
+
+        let windowMenuItem = NSMenuItem()
+        windowMenuItem.submenu = windowMenu
+        return windowMenuItem
     }
 
     private func installSigTermHandler() {
