@@ -10,6 +10,7 @@ struct BlockSetupView: View {
     @State private var customText = "60"
     @State private var items: [BlockItem] = []
     @State private var checked: Set<String> = []
+    @State private var isLoadingItems = true
 
     private let durationOptions: [(Int, String)] = [
         (25, "25m"), (60, "1h"), (120, "2h")
@@ -78,7 +79,16 @@ struct BlockSetupView: View {
 
     private var itemList: some View {
         Group {
-            if items.isEmpty {
+            if isLoadingItems {
+                VStack(spacing: 10) {
+                    ProgressView()
+                    Text("Loading apps and websites…")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(40)
+            } else if items.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "checklist")
                         .font(.system(size: 32))
@@ -238,96 +248,109 @@ struct BlockSetupView: View {
         let store = ActivityStore.shared
         let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Lock In"
         let selfBundleID = Bundle.main.bundleIdentifier ?? ""
-        var result: [BlockItem] = []
+        isLoadingItems = true
 
-        // Single dual-path query (works with Screen Time DB and custom JSONL)
-        let topUsage = store.topApps(forDays: 1, limit: 50)
-        var durationByName: [String: TimeInterval] = [:]
-        var durationByDomain: [String: TimeInterval] = [:]
-        var bundleIDByName: [String: String] = [:]
-        for u in topUsage {
-            if let domain = u.domain {
-                durationByDomain[domain, default: 0] += u.duration
-            } else {
-                durationByName[u.appName.lowercased(), default: 0] += u.duration
-                if !u.bundleID.isEmpty { bundleIDByName[u.appName.lowercased()] = u.bundleID }
+        DispatchQueue.global(qos: .userInitiated).async {
+            var result: [BlockItem] = []
+
+            // Single dual-path query (works with Screen Time DB and custom JSONL)
+            let topUsage = store.topApps(forDays: 1, limit: 50)
+            var durationByName: [String: TimeInterval] = [:]
+            var durationByDomain: [String: TimeInterval] = [:]
+            var bundleIDByName: [String: String] = [:]
+            for u in topUsage {
+                if let domain = u.domain {
+                    if let normalized = DomainMatcher.normalizeHost(domain) {
+                        durationByDomain[normalized, default: 0] += u.duration
+                    }
+                } else {
+                    durationByName[u.appName.lowercased(), default: 0] += u.duration
+                    if !u.bundleID.isEmpty { bundleIDByName[u.appName.lowercased()] = u.bundleID }
+                }
             }
-        }
 
-        // Build name→icon map from installed apps (covers apps not used today)
-        let installedByName: [String: AppInfo] = Dictionary(
-            AppScanner.shared.installedApps().map { ($0.name.lowercased(), $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
+            // Build name→icon map from installed apps (covers apps not used today)
+            let installedByName: [String: AppInfo] = Dictionary(
+                AppScanner.shared.installedApps().map { ($0.name.lowercased(), $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
 
-        func iconForApp(name: String, bundleID: String) -> NSImage? {
-            if !bundleID.isEmpty,
-               let url = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: bundleID).first {
-                return NSWorkspace.shared.icon(forFile: url.path)
+            func iconForApp(name: String, bundleID: String) -> NSImage? {
+                if !bundleID.isEmpty,
+                   let url = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: bundleID).first {
+                    return NSWorkspace.shared.icon(forFile: url.path)
+                }
+                if let info = installedByName[name.lowercased()] {
+                    return NSWorkspace.shared.icon(forFile: info.bundlePath)
+                }
+                return nil
             }
-            if let info = installedByName[name.lowercased()] {
-                return NSWorkspace.shared.icon(forFile: info.bundlePath)
+
+            // Config apps — exclude this app
+            for appName in config.blockedApps where appName.caseInsensitiveCompare(selfName) != .orderedSame {
+                let dur = durationByName[appName.lowercased()] ?? 0
+                let bid = bundleIDByName[appName.lowercased()] ?? ""
+                let cat = bid.isEmpty ? config.category(for: appName) : config.category(for: bid)
+                result.append(BlockItem(
+                    displayName: appName, blockingName: appName,
+                    isApp: true, isFromConfig: true,
+                    todayDuration: dur, category: cat,
+                    icon: iconForApp(name: appName, bundleID: bid)
+                ))
             }
-            return nil
-        }
 
-        // Config apps — exclude this app
-        for appName in config.blockedApps where appName.caseInsensitiveCompare(selfName) != .orderedSame {
-            let dur = durationByName[appName.lowercased()] ?? 0
-            let bid = bundleIDByName[appName.lowercased()] ?? ""
-            let cat = bid.isEmpty ? config.category(for: appName) : config.category(for: bid)
-            result.append(BlockItem(
-                displayName: appName, blockingName: appName,
-                isApp: true, isFromConfig: true,
-                todayDuration: dur, category: cat,
-                icon: iconForApp(name: appName, bundleID: bid)
-            ))
-        }
-
-        // Config websites
-        for domain in config.blockedWebsites {
-            let dur = durationByDomain[domain] ?? 0
-            result.append(BlockItem(
-                displayName: domain, blockingName: domain,
-                isApp: false, isFromConfig: true,
-                todayDuration: dur, category: config.category(for: domain),
-                icon: nil
-            ))
-        }
-
-        // Suggestions from today's usage — exclude this app and already-configured items
-        let configAppNamesLower = Set(config.blockedApps.map { $0.lowercased() })
-        let configWebsites = Set(config.blockedWebsites)
-        for usage in topUsage where usage.duration >= 60
-            && usage.bundleID != selfBundleID
-            && usage.appName.caseInsensitiveCompare(selfName) != .orderedSame {
-            let cat = config.category(for: ActivityStore.eventKey(
-                ActivityEvent(timestamp: .now, duration: 0, appName: usage.appName,
-                              bundleID: usage.bundleID, domain: usage.domain)
-            ))
-            guard cat == .entertainment || cat == .social else { continue }
-
-            if let domain = usage.domain {
-                guard !configWebsites.contains(domain) else { continue }
+            // Config websites
+            for domain in config.blockedWebsites {
+                let dur = durationByDomain.reduce(into: 0.0) { total, entry in
+                    if DomainMatcher.matches(host: entry.key, blockedDomain: domain) {
+                        total += entry.value
+                    }
+                }
                 result.append(BlockItem(
                     displayName: domain, blockingName: domain,
-                    isApp: false, isFromConfig: false,
-                    todayDuration: usage.duration, category: cat,
+                    isApp: false, isFromConfig: true,
+                    todayDuration: dur, category: config.category(for: domain),
                     icon: nil
                 ))
-            } else {
-                guard !configAppNamesLower.contains(usage.appName.lowercased()) else { continue }
-                result.append(BlockItem(
-                    displayName: usage.appName, blockingName: usage.appName,
-                    isApp: true, isFromConfig: false,
-                    todayDuration: usage.duration, category: cat,
-                    icon: iconForApp(name: usage.appName, bundleID: usage.bundleID)
+            }
+
+            // Suggestions from today's usage — exclude this app and already-configured items
+            let configAppNamesLower = Set(config.blockedApps.map { $0.lowercased() })
+            let configWebsites = Set(config.blockedWebsites)
+            for usage in topUsage where usage.duration >= 60
+                && usage.bundleID != selfBundleID
+                && usage.appName.caseInsensitiveCompare(selfName) != .orderedSame {
+                let cat = config.category(for: ActivityStore.eventKey(
+                    ActivityEvent(timestamp: .now, duration: 0, appName: usage.appName,
+                                  bundleID: usage.bundleID, domain: usage.domain)
                 ))
+                guard cat == .entertainment || cat == .social else { continue }
+
+                if let domain = usage.domain {
+                    guard !configWebsites.contains(where: { DomainMatcher.matches(host: domain, blockedDomain: $0) }) else { continue }
+                    result.append(BlockItem(
+                        displayName: domain, blockingName: domain,
+                        isApp: false, isFromConfig: false,
+                        todayDuration: usage.duration, category: cat,
+                        icon: nil
+                    ))
+                } else {
+                    guard !configAppNamesLower.contains(usage.appName.lowercased()) else { continue }
+                    result.append(BlockItem(
+                        displayName: usage.appName, blockingName: usage.appName,
+                        isApp: true, isFromConfig: false,
+                        todayDuration: usage.duration, category: cat,
+                        icon: iconForApp(name: usage.appName, bundleID: usage.bundleID)
+                    ))
+                }
+            }
+
+            DispatchQueue.main.async {
+                self.items = result
+                self.checked = Set(result.map(\.id))
+                self.isLoadingItems = false
             }
         }
-
-        items = result
-        checked = Set(result.map(\.id))
     }
 }
 

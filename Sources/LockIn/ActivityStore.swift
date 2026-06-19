@@ -4,6 +4,14 @@ import Combine
 
 final class ActivityStore: ObservableObject {
     static let shared = ActivityStore()
+    private static let browserBundleIDs: Set<String> = [
+        "com.apple.Safari",
+        "com.google.Chrome",
+        "company.thebrowser.Browser",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "org.mozilla.firefox",
+    ]
 
     @Published var todayTotal: TimeInterval = 0
 
@@ -44,7 +52,10 @@ final class ActivityStore: ObservableObject {
 
     // Only written by ActivityTracker when Screen Time DB is not available.
     func append(_ event: ActivityEvent) {
-        guard !ScreenTimeReader.shared.isAvailable else { return }
+        let usesScreenTime = ScreenTimeReader.shared.isAvailable
+        // When Screen Time is available, persist only domain-level browser slices.
+        guard !usesScreenTime || event.domain != nil else { return }
+
         let url = fileURL(for: event.timestamp)
         let delta = event.duration
         queue.async { [weak self] in
@@ -59,6 +70,7 @@ final class ActivityStore: ObservableObject {
             } else {
                 try? entry.write(to: url, atomically: false, encoding: .utf8)
             }
+            guard !usesScreenTime else { return }
             DispatchQueue.main.async { self.todayTotal += delta }
         }
     }
@@ -131,63 +143,67 @@ final class ActivityStore: ObservableObject {
 
     func topApps(forDays days: Int, limit: Int = 10) -> [AppUsage] {
         if ScreenTimeReader.shared.isAvailable {
-            return screenTimeTopApps(forDays: days, limit: limit)
+            return mergedTopApps(forDays: days, limit: limit)
         }
         return aggregate(events(forDays: days), limit: limit)
     }
 
     func topApps(for date: Date, limit: Int = 10) -> [AppUsage] {
         if ScreenTimeReader.shared.isAvailable {
-            return screenTimeTopApps(for: date, limit: limit)
+            return mergedTopApps(for: date, limit: limit)
         }
         return aggregate(events(for: date), limit: limit)
     }
 
     func categoryBreakdown(forDays days: Int, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
         if ScreenTimeReader.shared.isAvailable {
-            return screenTimeCategoryBreakdown(forDays: days, lookup: categoryLookup)
+            return mergedCategoryBreakdown(forDays: days, lookup: categoryLookup)
         }
         return buildCategoryBreakdown(events(forDays: days), lookup: categoryLookup)
     }
 
     func categoryBreakdown(for date: Date, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
         if ScreenTimeReader.shared.isAvailable {
-            return screenTimeCategoryBreakdown(for: date, lookup: categoryLookup)
+            return mergedCategoryBreakdown(for: date, lookup: categoryLookup)
         }
         return buildCategoryBreakdown(events(for: date), lookup: categoryLookup)
     }
 
     // MARK: - Screen Time data paths
 
-    private func screenTimeTopApps(forDays days: Int, limit: Int) -> [AppUsage] {
-        let calendar = Calendar.current
-        let today = Date()
-        var byKey: [String: (appName: String, bundleID: String, domain: String?, duration: TimeInterval)] = [:]
-
-        for offset in 0..<days {
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
-            for sample in ScreenTimeReader.shared.samples(for: date) {
-                let key = sample.domain ?? sample.bundleID
-                let appName = resolveAppName(bundleID: sample.bundleID) ?? sample.domain ?? sample.bundleID
-                if byKey[key] != nil {
-                    byKey[key]!.duration += sample.duration
-                } else {
-                    byKey[key] = (appName, sample.bundleID, sample.domain, sample.duration)
-                }
-            }
-        }
-
-        return byKey
-            .map { _, v in AppUsage(appName: v.appName, bundleID: v.bundleID, domain: v.domain, duration: v.duration) }
+    private func mergedTopApps(forDays days: Int, limit: Int) -> [AppUsage] {
+        mergedUsage(screenTimeSamples: screenTimeSamples(forDays: days), trackedEvents: events(forDays: days))
             .sorted { $0.duration > $1.duration }
             .prefix(limit)
             .map { $0 }
     }
 
-    private func screenTimeTopApps(for date: Date, limit: Int) -> [AppUsage] {
+    private func mergedTopApps(for date: Date, limit: Int) -> [AppUsage] {
+        mergedUsage(screenTimeSamples: ScreenTimeReader.shared.samples(for: date), trackedEvents: events(for: date))
+            .sorted { $0.duration > $1.duration }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private func screenTimeSamples(forDays days: Int) -> [ScreenTimeReader.Sample] {
+        let calendar = Calendar.current
+        let today = Date()
+        return (0..<days).flatMap { offset -> [ScreenTimeReader.Sample] in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return [] }
+            return ScreenTimeReader.shared.samples(for: date)
+        }
+    }
+
+    private func mergedUsage(screenTimeSamples: [ScreenTimeReader.Sample], trackedEvents: [ActivityEvent]) -> [AppUsage] {
         var byKey: [String: (appName: String, bundleID: String, domain: String?, duration: TimeInterval)] = [:]
 
-        for sample in ScreenTimeReader.shared.samples(for: date) {
+        let trackedDomainUsage = aggregate(trackedEvents.filter { $0.domain != nil }, limit: Int.max)
+        let hasTrackedDomains = !trackedDomainUsage.isEmpty
+
+        for sample in screenTimeSamples {
+            if hasTrackedDomains && Self.browserBundleIDs.contains(sample.bundleID) {
+                continue
+            }
             let key = sample.domain ?? sample.bundleID
             let appName = resolveAppName(bundleID: sample.bundleID) ?? sample.domain ?? sample.bundleID
             if byKey[key] != nil {
@@ -197,25 +213,41 @@ final class ActivityStore: ObservableObject {
             }
         }
 
+        for usage in trackedDomainUsage {
+            let key = usage.domain ?? usage.bundleID
+            if byKey[key] != nil {
+                byKey[key]!.duration += usage.duration
+            } else {
+                byKey[key] = (usage.appName, usage.bundleID, usage.domain, usage.duration)
+            }
+        }
+
         return byKey
             .map { _, v in AppUsage(appName: v.appName, bundleID: v.bundleID, domain: v.domain, duration: v.duration) }
-            .sorted { $0.duration > $1.duration }
-            .prefix(limit)
-            .map { $0 }
+    }
+
+    private func mergedCategoryBreakdown(forDays days: Int, lookup: (String) -> AppCategory) -> [CategoryUsage] {
+        buildCategoryBreakdown(
+            mergedUsage(screenTimeSamples: screenTimeSamples(forDays: days), trackedEvents: events(forDays: days))
+                .map { ActivityEvent(timestamp: .now, duration: $0.duration, appName: $0.appName, bundleID: $0.bundleID, domain: $0.domain) },
+            lookup: lookup
+        )
+    }
+
+    private func mergedCategoryBreakdown(for date: Date, lookup: (String) -> AppCategory) -> [CategoryUsage] {
+        buildCategoryBreakdown(
+            mergedUsage(screenTimeSamples: ScreenTimeReader.shared.samples(for: date), trackedEvents: events(for: date))
+                .map { ActivityEvent(timestamp: .now, duration: $0.duration, appName: $0.appName, bundleID: $0.bundleID, domain: $0.domain) },
+            lookup: lookup
+        )
     }
 
     private func screenTimeCategoryBreakdown(forDays days: Int, lookup: (String) -> AppCategory) -> [CategoryUsage] {
-        let calendar = Calendar.current
-        let today = Date()
         var byCategory: [AppCategory: TimeInterval] = [:]
-
-        for offset in 0..<days {
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
-            for sample in ScreenTimeReader.shared.samples(for: date) {
-                let key = sample.domain ?? sample.bundleID
-                let cat = lookup(key)
-                byCategory[cat, default: 0] += sample.duration
-            }
+        for sample in screenTimeSamples(forDays: days) {
+            let key = sample.domain ?? sample.bundleID
+            let cat = lookup(key)
+            byCategory[cat, default: 0] += sample.duration
         }
 
         let noiseCategories: Set<AppCategory> = [.system, .other]

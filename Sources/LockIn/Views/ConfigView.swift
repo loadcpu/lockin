@@ -234,15 +234,7 @@ struct ConfigView: View {
     }
 
     private func addWebsite() {
-        let site = newWebsite
-            .trimmingCharacters(in: .whitespaces)
-            .lowercased()
-            .replacingOccurrences(of: "https://", with: "")
-            .replacingOccurrences(of: "http://", with: "")
-            .replacingOccurrences(of: "www.", with: "")
-            .components(separatedBy: "/").first ?? ""
-
-        guard !site.isEmpty else { return }
+        guard let site = DomainMatcher.normalizeHost(newWebsite) else { return }
 
         if service.config.blockedWebsites.contains(site) {
             websiteError = "\(site) is already in the list"

@@ -16,6 +16,7 @@ final class ScreenTimeReader {
         "com.microsoft.edgemac",
         "org.mozilla.firefox",
     ]
+    private static let normalizedBrowserBundleIDs: Set<String> = Set(browserBundleIDs.map { $0.lowercased() })
 
     struct Sample {
         let bundleID: String   // real bundle ID, or "web" for domain entries
@@ -152,18 +153,13 @@ final class ScreenTimeReader {
             let dur = sqlite3_column_double(stmt, 1)
             guard !raw.isEmpty, dur > 0 else { continue }
             let domain = canonicalizeDomain(raw)
+            guard !Self.normalizedBrowserBundleIDs.contains(domain) else { continue }
             results.append(Sample(bundleID: "web", domain: domain, duration: dur))
         }
         return results
     }
 
     private func canonicalizeDomain(_ raw: String) -> String {
-        let host: String
-        if raw.contains("://"), let url = URL(string: raw), let h = url.host {
-            host = h
-        } else {
-            host = raw
-        }
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        DomainMatcher.normalizeHost(raw) ?? raw.lowercased()
     }
 }
