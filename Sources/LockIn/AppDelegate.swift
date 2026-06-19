@@ -198,10 +198,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 ),
                 title: "Lock In",
                 size: NSSize(width: 300, height: 300),
-                style: [.titled, .closable, .fullSizeContentView]
+                style: [.titled, .closable, .miniaturizable]
             ) { win, hosting in
                 win.setContentSize(hosting.fittingSize)
-                win.titlebarAppearsTransparent = true
                 win.isMovableByWindowBackground = true
             }
         }
@@ -319,9 +318,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             ),
             title: "Start Focus Session",
             size: NSSize(width: 560, height: 660),
-            style: [.titled, .closable]
-        ) { _, hosting in
+            style: [.titled, .closable, .fullSizeContentView]
+        ) { win, hosting in
             hosting.autoresizingMask = [.width, .height]
+            win.titlebarAppearsTransparent = true
+            win.isMovableByWindowBackground = true
         }
         blockSetupWC?.showWindow(nil)
     }

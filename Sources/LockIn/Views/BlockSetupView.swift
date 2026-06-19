@@ -21,6 +21,7 @@ struct BlockSetupView: View {
         case timer = "Timer"
     }
     @State private var step: SetupStep = .list
+    @State private var hoveredStep: SetupStep?
 
     private var isCustomSelected: Bool {
         !durationOptions.contains(selectedMinutes)
@@ -29,8 +30,8 @@ struct BlockSetupView: View {
     var body: some View {
         VStack(spacing: 0) {
             stepTabs
-                .padding(.top, 18)
-                .padding(.bottom, 14)
+                .padding(.top, 6)
+                .padding(.bottom, 8)
             Divider()
             content
             Divider()
@@ -53,13 +54,16 @@ struct BlockSetupView: View {
                         }
                     } label: {
                         Text(current.rawValue)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.body.weight(.semibold))
                             .foregroundColor(tabForeground(for: current))
-                            .frame(width: 120, height: 32)
+                            .frame(width: 124, height: 34)
                             .background(tabBackground(for: current))
                     }
                     .buttonStyle(.plain)
                     .disabled(current == .timer && checkedTotal == 0)
+                    .onHover { isHovering in
+                        hoveredStep = isHovering ? current : (hoveredStep == current ? nil : hoveredStep)
+                    }
 
                     if current != SetupStep.allCases.last {
                         Divider()
@@ -358,12 +362,22 @@ struct BlockSetupView: View {
 
     private func tabBackground(for step: SetupStep) -> some View {
         Capsule()
-            .fill(self.step == step ? Color.white.opacity(0.16) : Color.clear)
+            .fill(tabFill(for: step))
             .padding(2)
     }
 
     private func tabForeground(for step: SetupStep) -> Color {
         self.step == step ? .primary : .secondary
+    }
+
+    private func tabFill(for step: SetupStep) -> Color {
+        if self.step == step {
+            return Color.white.opacity(0.16)
+        }
+        if hoveredStep == step {
+            return Color.white.opacity(0.08)
+        }
+        return .clear
     }
 
     // MARK: - Data loading
