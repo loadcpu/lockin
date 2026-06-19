@@ -1,6 +1,17 @@
 import SwiftUI
 import AppKit
 
+private let dashboardAccentBlue = Color(
+    red: 26.0 / 255.0,
+    green: 56.0 / 255.0,
+    blue: 209.0 / 255.0
+)
+private let dashboardLinkBlue = Color(
+    red: 57.0 / 255.0,
+    green: 123.0 / 255.0,
+    blue: 247.0 / 255.0
+)
+
 struct DashboardView: View {
     @ObservedObject private var service = BlockerService.shared
     @ObservedObject private var store = ActivityStore.shared
@@ -86,7 +97,7 @@ struct DashboardView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .tint(Color(red: 0.10, green: 0.22, blue: 0.82))
+            .tint(dashboardAccentBlue)
         }
     }
 
@@ -103,7 +114,7 @@ struct DashboardView: View {
                 Button("View Details →") { onViewStats() }
                     .buttonStyle(.plain)
                     .font(.caption)
-                    .foregroundColor(.blue)
+                    .foregroundColor(dashboardLinkBlue)
             }
 
             if focusToday > 0 {
