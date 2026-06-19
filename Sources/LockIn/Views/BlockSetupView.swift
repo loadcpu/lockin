@@ -29,16 +29,23 @@ struct BlockSetupView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            stepTabs
-                .padding(.top, 6)
-                .padding(.bottom, 8)
+            titlebarTabs
             Divider()
             content
             Divider()
             actionBar
         }
         .frame(width: 620, height: 640)
+        .ignoresSafeArea(edges: .top)
         .onAppear(perform: loadItems)
+    }
+
+    private var titlebarTabs: some View {
+        ZStack {
+            Color.clear
+            stepTabs
+        }
+        .frame(height: 54)
     }
 
     private var stepTabs: some View {
@@ -56,7 +63,7 @@ struct BlockSetupView: View {
                         Text(current.rawValue)
                             .font(.body.weight(.semibold))
                             .foregroundColor(tabForeground(for: current))
-                            .frame(width: 124, height: 34)
+                            .frame(width: 104, height: 34)
                             .background(tabBackground(for: current))
                     }
                     .buttonStyle(.plain)
@@ -77,6 +84,8 @@ struct BlockSetupView: View {
             Spacer()
         }
         .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 
     private var content: some View {
