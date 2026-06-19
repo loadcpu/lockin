@@ -48,7 +48,7 @@ struct DashboardView: View {
             Image(nsImage: NSApp.applicationIconImage ?? NSImage())
                 .resizable()
                 .frame(width: 72, height: 72)
-                .padding(.top, 28)
+                .padding(.top, 16)
             Text("Lock In")
                 .font(.title2.bold())
         }
