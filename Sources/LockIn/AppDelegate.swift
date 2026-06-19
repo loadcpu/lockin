@@ -2,6 +2,19 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
+private let appBackgroundColor = Color(
+    red: 30.0 / 255.0,
+    green: 30.0 / 255.0,
+    blue: 30.0 / 255.0
+)
+
+private let appBackgroundNSColor = NSColor(
+    calibratedRed: 30.0 / 255.0,
+    green: 30.0 / 255.0,
+    blue: 30.0 / 255.0,
+    alpha: 1
+)
+
 private final class HostingWindowController: NSWindowController {
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
@@ -386,17 +399,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         title: String,
         size: NSSize,
         style: NSWindow.StyleMask,
-        configure: ((NSWindow, NSHostingView<V>) -> Void)? = nil
+        configure: ((NSWindow, NSHostingView<AnyView>) -> Void)? = nil
     ) -> HostingWindowController {
-        let hosting = NSHostingView(rootView: rootView)
+        var windowStyle = style
+        windowStyle.insert(.fullSizeContentView)
+
+        let hosting = NSHostingView(rootView: AnyView(
+            ZStack {
+                appBackgroundColor.ignoresSafeArea()
+                rootView
+            }
+        ))
         let win = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: style,
+            styleMask: windowStyle,
             backing: .buffered,
             defer: false
         )
         win.title = title
         win.titleVisibility = .hidden
+        win.titlebarAppearsTransparent = true
+        win.backgroundColor = appBackgroundNSColor
         win.contentView = hosting
         win.isReleasedWhenClosed = false
         configure?(win, hosting)
