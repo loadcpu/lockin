@@ -15,7 +15,9 @@ struct BlockSetupView: View {
     @State private var isLoadingItems = true
 
     private let durationOptions: [(Int, String)] = [
-        (25, "25m"), (60, "1h"), (120, "2h")
+        (25, "25"),
+        (60, "60"),
+        (90, "90")
     ]
 
     private var isCustomSelected: Bool {
@@ -39,7 +41,7 @@ struct BlockSetupView: View {
     private var durationRow: some View {
         HStack(spacing: 8) {
             Text("Duration")
-                .font(.body)
+                .font(.body.weight(.bold))
                 .foregroundColor(.secondary)
             Spacer()
             ForEach(durationOptions, id: \.0) { mins, label in
@@ -69,7 +71,7 @@ struct BlockSetupView: View {
                         }
                     }
                 Text("m")
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundColor(.secondary)
             }
         }
@@ -121,7 +123,6 @@ struct BlockSetupView: View {
     private var configSection: some View {
         Group {
             if !configItems.isEmpty {
-                sectionHeader("YOUR BLOCK LIST")
                 groupedItemsSection(apps: configAppItems, websites: configWebsiteItems)
             }
         }
@@ -137,7 +138,7 @@ struct BlockSetupView: View {
     private func sectionHeader(_ text: String) -> some View {
         HStack {
             Text(text)
-                .font(.footnote.bold())
+                .font(.body.weight(.semibold))
                 .foregroundColor(.secondary)
                 .tracking(0.5)
             Spacer()
@@ -170,7 +171,7 @@ struct BlockSetupView: View {
     private func subsectionHeader(_ text: String) -> some View {
         HStack {
             Text(text)
-                .font(.footnote.weight(.semibold))
+                .font(.body.weight(.semibold))
                 .foregroundColor(.secondary.opacity(0.9))
             Spacer()
         }
@@ -206,7 +207,7 @@ struct BlockSetupView: View {
             Spacer()
 
             Text(item.category.rawValue)
-                .font(.footnote)
+                .font(.body)
                 .foregroundColor(item.category.color)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
