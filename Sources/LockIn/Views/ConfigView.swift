@@ -7,6 +7,7 @@ struct ConfigView: View {
     @State private var appSearch = ""
     @State private var newWebsite = ""
     @State private var websiteError = ""
+    private let configureBackground = AppTheme.background
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,6 +22,7 @@ struct ConfigView: View {
             }
         }
         .frame(width: 560, height: 540)
+        .background(configureBackground)
     }
 
     private var tabPicker: some View {
@@ -56,8 +58,12 @@ struct ConfigView: View {
                 }
             }
             .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(configureBackground)
             .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(AppTheme.separator, lineWidth: 1)
+            )
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
@@ -80,8 +86,11 @@ struct ConfigView: View {
                         .toggleStyle(.switch)
                 }
                 .padding(.vertical, 1)
+                .listRowBackground(configureBackground)
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(configureBackground)
 
             Divider()
 
@@ -130,16 +139,27 @@ struct ConfigView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .listRowBackground(configureBackground)
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(configureBackground)
 
             Divider()
 
             VStack(spacing: 4) {
                 HStack {
                     TextField("Add domain (e.g. facebook.com)", text: $newWebsite)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(configureBackground)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(AppTheme.separator, lineWidth: 1)
+                        )
                         .onSubmit { addWebsite() }
                     Button("Add", action: addWebsite)
                         .disabled(newWebsite.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -271,9 +291,12 @@ struct ConfigView: View {
                         .frame(width: 80)
                     }
                     .padding(.vertical, 2)
+                    .listRowBackground(configureBackground)
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(configureBackground)
 
             Divider()
 

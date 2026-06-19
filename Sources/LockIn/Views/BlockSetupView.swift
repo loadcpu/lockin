@@ -109,7 +109,7 @@ struct BlockSetupView: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 12)
-        .background(Color(NSColor.windowBackgroundColor))
+        .appWindowSurface()
     }
 
     private var content: some View {
@@ -339,7 +339,7 @@ struct BlockSetupView: View {
         .padding(.horizontal, 24)
         .padding(.top, 8)
         .padding(.bottom, 12)
-        .background(Color(NSColor.windowBackgroundColor))
+        .appWindowSurface()
     }
 
     private func confirmAndStart() {
@@ -567,12 +567,12 @@ private struct DurationButtonStyle: ButtonStyle {
             .font(.body.weight(selected ? .semibold : .regular))
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(selected ? blockSetupAccentBlue : Color(NSColor.controlBackgroundColor))
+            .background(selected ? blockSetupAccentBlue : AppTheme.controlSurface)
             .foregroundColor(selected ? .white : .primary)
             .cornerRadius(10)
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(selected ? blockSetupAccentBlue : Color(NSColor.separatorColor), lineWidth: 1)
+                    .stroke(selected ? blockSetupAccentBlue : AppTheme.separator, lineWidth: 1)
             )
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
