@@ -245,7 +245,7 @@ struct ConfigView: View {
             return
         }
 
-        service.config.blockedWebsites.append(site)
+        service.config.blockedWebsites.insert(site, at: 0)
         service.saveConfig()
         newWebsite = ""
         websiteError = ""
