@@ -3,6 +3,7 @@ import Foundation
 
 final class BrowserWatcher {
     static let shared = BrowserWatcher()
+    private let pollInterval: TimeInterval = 1.0
 
     private var pollTimer: Timer?
     private(set) var currentDomain: String?
@@ -11,6 +12,8 @@ final class BrowserWatcher {
     private var lastBrowserBundleID: String?
     private var scriptCache: [String: NSAppleScript] = [:]
     private var listeners: [UUID: (String?, String?) -> Void] = [:]
+    private let pollLock = NSLock()
+    private var isPolling = false
 
     static let bundleIDs: Set<String> = [
         "com.apple.Safari",
@@ -29,15 +32,21 @@ final class BrowserWatcher {
 
     func start() {
         guard pollTimer == nil else { return }
-        DispatchQueue.global(qos: .utility).async { [weak self] in self?.poll() }
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            DispatchQueue.global(qos: .utility).async { self?.poll() }
+        refreshNow()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
+            self?.refreshNow()
         }
     }
 
     func stop() {
         pollTimer?.invalidate()
         pollTimer = nil
+    }
+
+    func refreshNow() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.poll()
+        }
     }
 
     @discardableResult
@@ -54,6 +63,19 @@ final class BrowserWatcher {
     // MARK: - Polling
 
     private func poll() {
+        pollLock.lock()
+        if isPolling {
+            pollLock.unlock()
+            return
+        }
+        isPolling = true
+        pollLock.unlock()
+        defer {
+            pollLock.lock()
+            isPolling = false
+            pollLock.unlock()
+        }
+
         guard let front = NSWorkspace.shared.frontmostApplication,
               let bundleID = front.bundleIdentifier,
               Self.isBrowser(bundleID)

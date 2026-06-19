@@ -141,8 +141,9 @@ final class BlockerService: ObservableObject {
             name: NSWorkspace.didLaunchApplicationNotification,
             object: nil
         )
-        killTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        killTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.killBlockedApps()
+            self?.interruptBlockedTabsInRunningBrowsers()
         }
     }
 
@@ -158,20 +159,20 @@ final class BlockerService: ObservableObject {
         let sessionApps = Set(session?.blockedApps.map { $0.lowercased() } ?? [])
         let sessionWebsites = Set((session?.blockedWebsites ?? []).compactMap(DomainMatcher.normalizeHost))
         blockedAppNames = sessionApps.union(limitBlockedApps)
+        let websites = Array(sessionWebsites.union(limitBlockedWebsites))
 
-        if blockedAppNames.isEmpty {
+        if blockedAppNames.isEmpty && websites.isEmpty {
             stopMonitoring()
         } else {
             startMonitoring()
             killBlockedApps()
         }
 
-        let websites = Array(sessionWebsites.union(limitBlockedWebsites))
         websiteBlockQueue.async { [weak self] in
             if websites.isEmpty {
                 HostsManager.removeBlocks()
             } else if HostsManager.applyBlocks(domains: websites), shouldReload {
-                self?.reloadBrowserTabs()
+                self?.interruptBlockedTabsInRunningBrowsers()
             }
         }
     }
@@ -269,20 +270,76 @@ final class BlockerService: ObservableObject {
         }
     }
 
-    // MARK: - Tab reload (session start)
+    // MARK: - Browser enforcement
 
-    private func reloadBrowserTabs() {
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
-            for b in self.knownBrowsers {
-                guard NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).first != nil else { continue }
-                if !self.reloadTabs(in: b) {
-                    // During an active locked session, browsers that can bypass
-                    // website blocking must be closed if Automation is denied.
-                    _ = self.forceQuitBrowsers(bundleIDs: [b.bundleID])
-                    self.notifyBrowserForceQuit(b.name)
+    private enum BrowserTabQueryResult {
+        case domain(String)
+        case noTab
+        case failed
+    }
+
+    private func interruptBlockedTabsInRunningBrowsers() {
+        for browser in knownBrowsers {
+            guard NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).first != nil else { continue }
+
+            switch currentDomain(in: browser) {
+            case .domain(let domain):
+                guard matchesBlockedWebsite(domain) else { continue }
+                if !interruptBlockedCurrentTab(in: browser, domain: domain), isBlocking {
+                    _ = forceQuitBrowsers(bundleIDs: [browser.bundleID])
+                    notifyBrowserForceQuit(browser.name)
+                }
+            case .noTab:
+                continue
+            case .failed:
+                if isBlocking {
+                    _ = forceQuitBrowsers(bundleIDs: [browser.bundleID])
+                    notifyBrowserForceQuit(browser.name)
                 }
             }
         }
+
+        BrowserWatcher.shared.refreshNow()
+    }
+
+    private func currentDomain(in browser: Browser) -> BrowserTabQueryResult {
+        let script: String
+        if browser.isSafari {
+            script = """
+            if application "\(browser.name)" is running then
+                tell application "\(browser.name)"
+                    if (count of windows) > 0 then
+                        return URL of current tab of front window
+                    end if
+                end tell
+            end if
+            """
+        } else {
+            script = """
+            if application "\(browser.name)" is running then
+                tell application "\(browser.name)"
+                    if (count of windows) > 0 then
+                        return URL of active tab of front window
+                    end if
+                end tell
+            end if
+            """
+        }
+
+        var err: NSDictionary?
+        let result = NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if let err {
+            NSLog("LockIn: %@ front-tab query error: %@", browser.name, err)
+            return .failed
+        }
+
+        guard let urlString = result?.stringValue,
+              let host = URL(string: urlString)?.host,
+              let domain = DomainMatcher.normalizeHost(host) else {
+            return .noTab
+        }
+
+        return .domain(domain)
     }
 
     private func notifyBrowserForceQuit(_ browserName: String) {
@@ -329,28 +386,6 @@ final class BlockerService: ObservableObject {
         if let err {
             NSLog("LockIn: %@ blocked-site interrupt error for %@: %@", browser.name, domain, err)
         }
-        return err == nil
-    }
-
-    @discardableResult
-    private func reloadTabs(in browser: Browser) -> Bool {
-        let action = browser.isSafari ? "set URL of t to URL of t" : "reload t"
-        let script = """
-        if application "\(browser.name)" is running then
-            tell application "\(browser.name)"
-                repeat with w in windows
-                    repeat with t in tabs of w
-                        try
-                            \(action)
-                        end try
-                    end repeat
-                end repeat
-            end tell
-        end if
-        """
-        var err: NSDictionary?
-        NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if let err { NSLog("LockIn: %@ reload error: %@", browser.name, err) }
         return err == nil
     }
 
