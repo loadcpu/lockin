@@ -93,7 +93,7 @@ struct DashboardView: View {
                 .font(.body)
             Button(action: onStartBlocking) {
                 Text("Start Blocking")
-                    .frame(maxWidth: .infinity)
+                    .frame(width: 240)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -120,7 +120,7 @@ struct DashboardView: View {
             if focusToday > 0 {
                 HStack(alignment: .bottom, spacing: 6) {
                     Text(focusToday.formattedDuration)
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundColor(Color(red: 0.20, green: 0.78, blue: 0.35))
                     Text("focus time")
                         .font(.footnote)
