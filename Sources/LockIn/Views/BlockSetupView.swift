@@ -122,7 +122,7 @@ struct BlockSetupView: View {
         Group {
             if !configItems.isEmpty {
                 sectionHeader("YOUR BLOCK LIST")
-                ForEach(configItems) { item in itemRow(item) }
+                groupedItemsSection(apps: configAppItems, websites: configWebsiteItems)
             }
         }
     }
@@ -130,7 +130,7 @@ struct BlockSetupView: View {
     private var suggestionSection: some View {
         Group {
             sectionHeader("SUGGESTED")
-            ForEach(suggestedItems) { item in itemRow(item) }
+            groupedItemsSection(apps: suggestedAppItems, websites: suggestedWebsiteItems)
         }
     }
 
@@ -144,6 +144,38 @@ struct BlockSetupView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
+        .padding(.bottom, 4)
+    }
+
+    private func groupedItemsSection(apps: [BlockItem], websites: [BlockItem]) -> some View {
+        VStack(spacing: 0) {
+            if !apps.isEmpty {
+                subsectionHeader("Apps")
+                ForEach(apps) { item in itemRow(item) }
+            }
+
+            if !apps.isEmpty && !websites.isEmpty {
+                Divider()
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 6)
+            }
+
+            if !websites.isEmpty {
+                subsectionHeader("Websites")
+                ForEach(websites) { item in itemRow(item) }
+            }
+        }
+    }
+
+    private func subsectionHeader(_ text: String) -> some View {
+        HStack {
+            Text(text)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary.opacity(0.9))
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
         .padding(.bottom, 4)
     }
 
@@ -173,25 +205,14 @@ struct BlockSetupView: View {
 
             Spacer()
 
-            HStack(spacing: 6) {
-                Text(item.category.rawValue)
-                    .font(.caption)
-                    .foregroundColor(item.category.color)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(item.category.color.opacity(0.10))
-                    .cornerRadius(5)
-                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(item.category.color.opacity(0.30), lineWidth: 1.0))
-
-                if item.todayDuration >= 60 {
-                    Text(item.todayDuration.formattedDuration)
-                        .font(.caption.monospacedDigit())
-                        .foregroundColor(item.category == .entertainment || item.category == .social ? .orange : .secondary)
-                        .frame(width: 46, alignment: .trailing)
-                } else {
-                    Text("").frame(width: 46)
-                }
-            }
+            Text(item.category.rawValue)
+                .font(.caption)
+                .foregroundColor(item.category.color)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(item.category.color.opacity(0.10))
+                .cornerRadius(5)
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(item.category.color.opacity(0.30), lineWidth: 1.0))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
@@ -243,7 +264,11 @@ struct BlockSetupView: View {
     // MARK: - Data loading
 
     private var configItems: [BlockItem] { items.filter(\.isFromConfig).sorted { $0.todayDuration > $1.todayDuration } }
+    private var configAppItems: [BlockItem] { configItems.filter(\.isApp) }
+    private var configWebsiteItems: [BlockItem] { configItems.filter { !$0.isApp } }
     private var suggestedItems: [BlockItem] { items.filter { !$0.isFromConfig }.sorted { $0.todayDuration > $1.todayDuration } }
+    private var suggestedAppItems: [BlockItem] { suggestedItems.filter(\.isApp) }
+    private var suggestedWebsiteItems: [BlockItem] { suggestedItems.filter { !$0.isApp } }
 
     private func loadItems() {
         let config = service.config
