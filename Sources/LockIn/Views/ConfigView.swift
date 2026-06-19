@@ -10,8 +10,6 @@ struct ConfigView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
             tabPicker
             Divider()
             Group {
@@ -22,11 +20,12 @@ struct ConfigView: View {
                 }
             }
         }
-        .frame(width: 520, height: 520)
+        .frame(width: 520, height: 500)
     }
 
     private var tabPicker: some View {
         HStack {
+            Spacer()
             Picker("", selection: $selectedTab) {
                 Text("Apps").tag(0)
                 Text("Websites").tag(1)
@@ -34,29 +33,10 @@ struct ConfigView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 260)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "shield.fill")
-                .font(.title2)
-                .foregroundColor(.blue)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Lock In")
-                    .font(.headline)
-                Text("Configure what gets blocked when a session starts")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Apps Tab
