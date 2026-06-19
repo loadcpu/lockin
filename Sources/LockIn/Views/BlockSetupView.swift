@@ -29,28 +29,23 @@ struct BlockSetupView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            titlebarTabs
-            Divider()
+            topBar
             content
-            Divider()
             actionBar
         }
-        .frame(width: 620, height: 640)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea(edges: .top)
         .onAppear(perform: loadItems)
     }
 
-    private var titlebarTabs: some View {
+    private var topBar: some View {
         ZStack {
-            Color.clear
-            stepTabs
-        }
-        .frame(height: 54)
-    }
+            HStack {
+                Spacer()
+                    .frame(width: 196)
+                Spacer()
+            }
 
-    private var stepTabs: some View {
-        HStack {
-            Spacer()
             HStack(spacing: 0) {
                 ForEach(SetupStep.allCases, id: \.self) { current in
                     Button {
@@ -81,11 +76,11 @@ struct BlockSetupView: View {
             .background(Color.white.opacity(0.08))
             .clipShape(Capsule())
             .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
-            Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.bottom, 12)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 
     private var content: some View {
@@ -243,12 +238,6 @@ struct BlockSetupView: View {
                 ForEach(apps) { item in itemRow(item) }
             }
 
-            if !apps.isEmpty && !websites.isEmpty {
-                Divider()
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 6)
-            }
-
             if !websites.isEmpty {
                 subsectionHeader("Websites")
                 ForEach(websites) { item in itemRow(item) }
@@ -314,38 +303,35 @@ struct BlockSetupView: View {
     private var checkedTotal: Int { checkedApps.count + checkedSites.count }
 
     private var actionBar: some View {
-        VStack(spacing: 0) {
-            HStack {
+        HStack(spacing: 18) {
+            if step == .list {
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.plain)
-                    .foregroundColor(.secondary)
-                Spacer()
-                if step == .list {
-                    Button("Next") {
-                        step = .timer
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(checkedTotal == 0)
-                    .tint(blockSetupAccentBlue)
-                } else {
-                    Button("Back") {
-                        step = .list
-                        isCustomFieldFocused = false
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.secondary)
+                    .buttonStyle(FooterCapsuleButtonStyle(kind: .secondary))
 
-                    Button("Start") {
-                        confirmAndStart()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(checkedTotal == 0)
-                    .tint(blockSetupAccentBlue)
+                Button("Next") {
+                    step = .timer
                 }
+                .buttonStyle(FooterCapsuleButtonStyle(kind: .primary))
+                .disabled(checkedTotal == 0)
+            } else {
+                Button("Back") {
+                    step = .list
+                    isCustomFieldFocused = false
+                }
+                .buttonStyle(FooterCapsuleButtonStyle(kind: .secondary))
+
+                Button("Start") {
+                    confirmAndStart()
+                }
+                .buttonStyle(FooterCapsuleButtonStyle(kind: .primary))
+                .disabled(checkedTotal == 0)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 
     private func confirmAndStart() {
@@ -539,5 +525,45 @@ private struct DurationButtonStyle: ButtonStyle {
                     .stroke(selected ? blockSetupAccentBlue : Color(NSColor.separatorColor), lineWidth: 1)
             )
             .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+private struct FooterCapsuleButtonStyle: ButtonStyle {
+    enum Kind {
+        case primary
+        case secondary
+    }
+
+    let kind: Kind
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .frame(minWidth: 78)
+            .frame(height: 25)
+            .padding(.horizontal, 13)
+            .foregroundColor(foregroundColor(isPressed: configuration.isPressed))
+            .background(backgroundColor(isPressed: configuration.isPressed))
+            .clipShape(Capsule())
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        switch kind {
+        case .primary:
+            return isPressed ? blockSetupAccentBlue.opacity(0.86) : blockSetupAccentBlue
+        case .secondary:
+            return isPressed ? Color.white.opacity(0.14) : Color.white.opacity(0.10)
+        }
+    }
+
+    private func foregroundColor(isPressed: Bool) -> Color {
+        switch kind {
+        case .primary:
+            return .white
+        case .secondary:
+            return isPressed ? .primary.opacity(0.92) : .primary
+        }
     }
 }
