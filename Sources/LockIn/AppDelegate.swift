@@ -405,4 +405,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     ) {
         completionHandler([.banner, .sound])
     }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        defer { completionHandler() }
+
+        guard response.notification.request.identifier.hasPrefix("browser-force-quit-"),
+              let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
 }

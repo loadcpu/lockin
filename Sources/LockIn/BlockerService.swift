@@ -347,7 +347,7 @@ final class BlockerService: ObservableObject {
             guard settings.authorizationStatus == .authorized else { return }
             let content = UNMutableNotificationContent()
             content.title = "Browser closed during session"
-            content.body = "\(browserName) was closed because Automation access was denied and already-open tabs could bypass website blocking. Enable Lock In in System Settings → Privacy & Security → Automation."
+            content.body = "\(browserName) was closed. Click to enable Automation for Lock In."
             let request = UNNotificationRequest(identifier: "browser-force-quit-\(browserName)", content: content, trigger: nil)
             UNUserNotificationCenter.current().add(request) { error in
                 if let error { NSLog("LockIn: browser-force-quit notification failed: %@", error.localizedDescription) }
