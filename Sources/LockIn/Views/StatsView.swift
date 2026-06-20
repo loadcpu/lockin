@@ -67,6 +67,7 @@ struct StatsView: View {
         }
         .frame(width: 640, height: 620)
         .appWindowSurface()
+        .ignoresSafeArea(edges: .top)
         .onAppear(perform: reload)
         .onChange(of: range) { _ in
             reload()
@@ -83,25 +84,25 @@ struct StatsView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(spacing: 12) {
+        ZStack {
             HStack {
-                Label("Screen Time", systemImage: "chart.bar.fill")
-                    .font(.title3.bold())
                 Spacer()
-                if let selectedDate {
+                    .frame(width: 196)
+                Spacer()
+            }
+
+            rangePicker
+
+            if let selectedDate {
+                HStack {
+                    Spacer()
                     selectedDateChip(selectedDate)
                 }
             }
-
-            HStack {
-                Spacer()
-                rangePicker
-                Spacer()
-            }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 14)
-        .padding(.bottom, 16)
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
         .overlay(alignment: .bottom) {
             Divider()
         }
