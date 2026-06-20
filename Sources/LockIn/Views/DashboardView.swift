@@ -109,7 +109,7 @@ struct DashboardView: View {
                     .foregroundColor(.secondary)
                     .tracking(0.6)
                 Spacer()
-                Button("View Details →") { onViewStats() }
+                Button("Statistics") { onViewStats() }
                     .buttonStyle(.plain)
                     .font(.footnote)
                     .foregroundColor(dashboardLinkBlue)
