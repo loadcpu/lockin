@@ -190,9 +190,11 @@ struct BlockSetupView: View {
     private var timerStep: some View {
         VStack(spacing: 34) {
             VStack(spacing: 20) {
-                HStack(spacing: 56) {
+                HStack(alignment: .center, spacing: 6) {
                     timeLabel("hr")
+                    timeSeparator.hidden()
                     timeLabel("min")
+                    timeSeparator.hidden()
                     timeLabel("sec")
                 }
 
@@ -997,7 +999,7 @@ struct BlockSetupView: View {
 
     private func timeLabel(_ text: String) -> some View {
         Text(text)
-            .font(.title2.weight(.semibold))
+            .font(.title2.weight(.regular))
             .foregroundColor(.secondary)
             .frame(width: 140)
     }
@@ -1029,6 +1031,7 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
     func makeNSView(context: Context) -> SelectAllNSTextField {
         let textField = SelectAllNSTextField()
         textField.delegate = context.coordinator
+        textField.formatter = TimerDigitsFormatter()
         textField.isBordered = false
         textField.isBezeled = false
         textField.drawsBackground = false
@@ -1067,7 +1070,6 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
             DispatchQueue.main.async {
                 guard focusedField == field else { return }
                 nsView.applyEditorAppearance()
-                nsView.currentEditor()?.selectAll(nil)
             }
         }
     }
@@ -1089,7 +1091,6 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
             guard let textField = notification.object as? SelectAllNSTextField else { return }
             DispatchQueue.main.async {
                 textField.applyEditorAppearance()
-                textField.currentEditor()?.selectAll(nil)
             }
         }
     }
@@ -1122,6 +1123,41 @@ private final class SelectAllNSTextField: NSTextField {
             self?.applyEditorAppearance()
             self?.currentEditor()?.selectAll(nil)
         }
+    }
+}
+
+private final class TimerDigitsFormatter: Formatter {
+    override func string(for obj: Any?) -> String? {
+        obj as? String
+    }
+
+    override func getObjectValue(
+        _ obj: AutoreleasingUnsafeMutablePointer<AnyObject?>?,
+        for string: String,
+        errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
+    ) -> Bool {
+        obj?.pointee = string as NSString
+        return true
+    }
+
+    override func isPartialStringValid(
+        _ partialString: String,
+        newEditingString newString: AutoreleasingUnsafeMutablePointer<NSString?>?,
+        errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
+    ) -> Bool {
+        if partialString.isEmpty {
+            return true
+        }
+
+        let digitsOnly = partialString.filter(\.isNumber)
+        let limitedDigits = String(digitsOnly.prefix(2))
+
+        if limitedDigits != partialString {
+            newString?.pointee = limitedDigits as NSString
+            return false
+        }
+
+        return true
     }
 }
 
