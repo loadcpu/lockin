@@ -15,6 +15,9 @@ struct BlockSetupView: View {
     @ObservedObject private var service = BlockerService.shared
     @State private var selectedMinutes = 60
     @State private var customText = ""
+    @State private var hourInput = "01"
+    @State private var minuteInput = "00"
+    @State private var secondInput = "00"
     @State private var items: [BlockItem] = []
     @State private var checked: Set<String> = []
     @State private var isLoadingItems = true
@@ -43,32 +46,24 @@ struct BlockSetupView: View {
         !durationOptions.contains(selectedMinutes)
     }
 
-    private var selectedHours: Int {
-        selectedMinutes / 60
-    }
-
-    private var selectedRemainingMinutes: Int {
-        selectedMinutes % 60
-    }
-
     private var hoursText: Binding<String> {
         Binding(
-            get: { String(format: "%02d", selectedHours) },
-            set: { updateSelectedDuration(hours: $0, minutes: minutesText.wrappedValue, seconds: secondsText.wrappedValue) }
+            get: { hourInput },
+            set: { updateSelectedDuration(hours: $0, minutes: minuteInput, seconds: secondInput) }
         )
     }
 
     private var minutesText: Binding<String> {
         Binding(
-            get: { String(format: "%02d", selectedRemainingMinutes) },
-            set: { updateSelectedDuration(hours: hoursText.wrappedValue, minutes: $0, seconds: secondsText.wrappedValue) }
+            get: { minuteInput },
+            set: { updateSelectedDuration(hours: hourInput, minutes: $0, seconds: secondInput) }
         )
     }
 
     private var secondsText: Binding<String> {
         Binding(
-            get: { "00" },
-            set: { updateSelectedDuration(hours: hoursText.wrappedValue, minutes: minutesText.wrappedValue, seconds: $0) }
+            get: { secondInput },
+            set: { updateSelectedDuration(hours: hourInput, minutes: minuteInput, seconds: $0) }
         )
     }
 
@@ -80,7 +75,10 @@ struct BlockSetupView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea(edges: .top)
-        .onAppear(perform: loadItems)
+        .onAppear {
+            syncTimeFieldsFromSelection()
+            loadItems()
+        }
     }
 
     private var topBar: some View {
@@ -216,6 +214,7 @@ struct BlockSetupView: View {
                     ForEach(durationOptions, id: \.self) { mins in
                         Button {
                             selectedMinutes = mins
+                            syncTimeFieldsFromSelection()
                             focusedTimeField = nil
                         } label: {
                             Text("\(mins) min")
@@ -969,12 +968,26 @@ struct BlockSetupView: View {
         let sanitizedMinutes = sanitizeTimePart(minutes, maxLength: 2)
         let sanitizedSeconds = sanitizeTimePart(seconds, maxLength: 2)
 
+        hourInput = sanitizedHours
+        minuteInput = sanitizedMinutes
+        secondInput = sanitizedSeconds
+
         let hoursValue = min(Int(sanitizedHours) ?? 0, 23)
         let minutesValue = min(Int(sanitizedMinutes) ?? 0, 59)
         let secondsValue = min(Int(sanitizedSeconds) ?? 0, 59)
         let totalMinutes = hoursValue * 60 + minutesValue + (secondsValue > 0 ? 1 : 0)
 
-        selectedMinutes = max(1, min(totalMinutes, 1440))
+        selectedMinutes = min(totalMinutes, 1440)
+        customText = "\(selectedMinutes)"
+    }
+
+    private func syncTimeFieldsFromSelection() {
+        let hours = selectedMinutes / 60
+        let minutes = selectedMinutes % 60
+
+        hourInput = String(format: "%02d", hours)
+        minuteInput = String(format: "%02d", minutes)
+        secondInput = "00"
         customText = "\(selectedMinutes)"
     }
 
@@ -986,7 +999,7 @@ struct BlockSetupView: View {
         Text(text)
             .font(.title2.weight(.semibold))
             .foregroundColor(.secondary)
-            .frame(width: 142)
+            .frame(width: 140)
     }
 
     private var timeSeparator: some View {
@@ -998,16 +1011,13 @@ struct BlockSetupView: View {
 
     private func timeField(_ binding: Binding<String>, field: TimerField) -> some View {
         SelectAllTimerTextField(text: binding, focusedField: $focusedTimeField, field: field)
-            .frame(width: 142)
+            .frame(width: 140)
     }
 }
 
 // MARK: - Supporting types
 
 private struct SelectAllTimerTextField: NSViewRepresentable {
-    private static let fontSize: CGFloat = 108
-    private static let digitKern: CGFloat = -7
-
     @Binding var text: String
     @Binding var focusedField: TimerField?
     let field: TimerField
@@ -1026,16 +1036,17 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
         textField.isSelectable = true
         textField.focusRingType = .none
         textField.alignment = .center
+        textField.font = .systemFont(ofSize: 108, weight: .ultraLight)
+        if let descriptor = textField.font?.fontDescriptor.withDesign(.rounded) {
+            textField.font = NSFont(descriptor: descriptor, size: 108)
+        }
+        textField.textColor = NSColor.white.withAlphaComponent(0.9)
         textField.maximumNumberOfLines = 1
         textField.lineBreakMode = .byClipping
         textField.usesSingleLineMode = true
         textField.cell?.wraps = false
         textField.cell?.isScrollable = true
-        textField.applyTimerAppearance(
-            text,
-            font: timerFont(),
-            kern: Self.digitKern
-        )
+        textField.stringValue = text
         textField.onFocus = {
             focusedField = field
         }
@@ -1044,35 +1055,21 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 
     func updateNSView(_ nsView: SelectAllNSTextField, context: Context) {
         if nsView.stringValue != text {
-            nsView.applyTimerAppearance(
-                text,
-                font: timerFont(),
-                kern: Self.digitKern
-            )
-        } else {
-            nsView.applyEditorTracking(font: timerFont(), kern: Self.digitKern)
+            nsView.stringValue = text
         }
         nsView.onFocus = {
             focusedField = field
         }
+        nsView.applyEditorAppearance()
 
         if focusedField == field, nsView.window?.firstResponder != nsView.currentEditor() {
             nsView.window?.makeFirstResponder(nsView)
             DispatchQueue.main.async {
                 guard focusedField == field else { return }
-                nsView.applyEditorTracking(font: timerFont(), kern: Self.digitKern)
+                nsView.applyEditorAppearance()
                 nsView.currentEditor()?.selectAll(nil)
             }
         }
-    }
-
-    private func timerFont() -> NSFont {
-        let baseFont = NSFont.systemFont(ofSize: Self.fontSize, weight: .ultraLight)
-        guard let descriptor = baseFont.fontDescriptor.withDesign(.rounded),
-              let roundedFont = NSFont(descriptor: descriptor, size: Self.fontSize) else {
-            return baseFont
-        }
-        return roundedFont
     }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
@@ -1091,10 +1088,7 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
             parent.focusedField = parent.field
             guard let textField = notification.object as? SelectAllNSTextField else { return }
             DispatchQueue.main.async {
-                textField.applyEditorTracking(
-                    font: self.parent.timerFont(),
-                    kern: SelectAllTimerTextField.digitKern
-                )
+                textField.applyEditorAppearance()
                 textField.currentEditor()?.selectAll(nil)
             }
         }
@@ -1104,27 +1098,9 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 private final class SelectAllNSTextField: NSTextField {
     var onFocus: (() -> Void)?
 
-    func applyTimerAppearance(_ text: String, font: NSFont, kern: CGFloat) {
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .kern: kern,
-            .foregroundColor: NSColor.white.withAlphaComponent(0.9)
-        ]
-        attributedStringValue = NSAttributedString(string: text, attributes: attributes)
-        applyEditorTracking(font: font, kern: kern)
-    }
-
-    func applyEditorTracking(font: NSFont, kern: CGFloat) {
+    func applyEditorAppearance() {
         guard let editor = currentEditor() as? NSTextView else { return }
-
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-
-        editor.typingAttributes[NSAttributedString.Key.font] = font
-        editor.typingAttributes[NSAttributedString.Key.kern] = kern
-        editor.typingAttributes[NSAttributedString.Key.foregroundColor] = NSColor.white.withAlphaComponent(0.9)
-        editor.typingAttributes[NSAttributedString.Key.paragraphStyle] = paragraphStyle
-        editor.alignment = .center
+        editor.insertionPointColor = .clear
     }
 
     override func becomeFirstResponder() -> Bool {
@@ -1132,6 +1108,7 @@ private final class SelectAllNSTextField: NSTextField {
         if becameFirstResponder {
             onFocus?()
             DispatchQueue.main.async { [weak self] in
+                self?.applyEditorAppearance()
                 self?.currentEditor()?.selectAll(nil)
             }
         }
@@ -1142,6 +1119,7 @@ private final class SelectAllNSTextField: NSTextField {
         onFocus?()
         super.mouseDown(with: event)
         DispatchQueue.main.async { [weak self] in
+            self?.applyEditorAppearance()
             self?.currentEditor()?.selectAll(nil)
         }
     }
