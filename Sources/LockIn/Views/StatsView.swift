@@ -9,6 +9,7 @@ struct StatsView: View {
     @ObservedObject private var service = BlockerService.shared
     @ObservedObject private var store = ActivityStore.shared
     @State private var range: TimeRange = .today
+    @State private var hoveredRange: TimeRange?
     @State private var selectedDate: Date? = nil
     @State private var totalDuration: TimeInterval = 0
     @State private var topApps: [ActivityStore.AppUsage] = []
@@ -37,7 +38,6 @@ struct StatsView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -57,6 +57,8 @@ struct StatsView: View {
                         .padding(24)
                     }
                 }
+                .scrollIndicators(.never)
+                .appWindowSurface()
                 .background(ScrollViewInsetsResetter())
                 .onChange(of: scrollResetToken) { _ in
                     proxy.scrollTo("statsTop", anchor: .top)
@@ -64,6 +66,7 @@ struct StatsView: View {
             }
         }
         .frame(width: 640, height: 620)
+        .appWindowSurface()
         .onAppear(perform: reload)
         .onChange(of: range) { _ in
             reload()
@@ -80,40 +83,82 @@ struct StatsView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
-            Label("Screen Time", systemImage: "chart.bar.fill")
-                .font(.title3.bold())
-            Spacer()
-            if let selectedDate {
-                Button {
-                    self.selectedDate = nil
-                    reload()
-                    resetScrollPosition()
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(dayFormatter.string(from: selectedDate))
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
+        VStack(spacing: 12) {
+            HStack {
+                Label("Screen Time", systemImage: "chart.bar.fill")
+                    .font(.title3.bold())
+                Spacer()
+                if let selectedDate {
+                    selectedDateChip(selectedDate)
                 }
-                .buttonStyle(.borderless)
-                .font(.footnote)
-                .foregroundColor(.secondary)
             }
-            Picker("", selection: Binding(
-                get: { range },
-                set: { newRange in
-                    range = newRange
-                    selectedDate = nil
-                }
-            )) {
-                ForEach(TimeRange.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+
+            HStack {
+                Spacer()
+                rangePicker
+                Spacer()
             }
-            .pickerStyle(.segmented)
-            .frame(width: 220)
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+        .appWindowSurface()
+    }
+
+    private var rangePicker: some View {
+        HStack(spacing: 0) {
+            ForEach(TimeRange.allCases, id: \.self) { current in
+                Button {
+                    guard range != current else { return }
+                    range = current
+                    selectedDate = nil
+                } label: {
+                    Text(current.rawValue)
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(rangeForeground(for: current))
+                        .frame(width: current == .month ? 118 : 96, height: 34)
+                        .background(rangeBackground(for: current))
+                }
+                .buttonStyle(.plain)
+                .onHover { isHovering in
+                    hoveredRange = isHovering ? current : (hoveredRange == current ? nil : hoveredRange)
+                }
+
+                if current != TimeRange.allCases.last {
+                    Divider()
+                        .frame(height: 18)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.08))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private func selectedDateChip(_ date: Date) -> some View {
+        Button {
+            selectedDate = nil
+            reload()
+            resetScrollPosition()
+        } label: {
+            HStack(spacing: 6) {
+                Text(dayFormatter.string(from: date))
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.06))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Empty state
@@ -135,6 +180,7 @@ struct StatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(40)
+        .appCard(cornerRadius: 16)
     }
 
     // MARK: - Summary card
@@ -205,9 +251,7 @@ struct StatsView: View {
             }
         }
         .padding(16)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
+        .appCard(cornerRadius: 16)
     }
 
     private var streakRow: some View {
@@ -282,10 +326,8 @@ struct StatsView: View {
                 resetScrollPosition()
             }
         )
-            .padding(16)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
+        .padding(16)
+        .appCard(cornerRadius: 16)
     }
 
     // MARK: - Category section
@@ -364,9 +406,7 @@ struct StatsView: View {
                     }
                 }
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(NSColor.separatorColor), lineWidth: 1.0))
+            .appCard(cornerRadius: 14)
         }
     }
 
@@ -386,9 +426,29 @@ struct StatsView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.footnote.bold())
+            .font(.body.weight(.semibold))
             .foregroundColor(.secondary)
             .tracking(0.5)
+    }
+
+    private func rangeForeground(for current: TimeRange) -> Color {
+        range == current ? .primary : .secondary
+    }
+
+    private func rangeBackground(for current: TimeRange) -> some View {
+        Capsule()
+            .fill(rangeFill(for: current))
+            .padding(2)
+    }
+
+    private func rangeFill(for current: TimeRange) -> Color {
+        if range == current {
+            return Color.white.opacity(0.16)
+        }
+        if hoveredRange == current {
+            return Color.white.opacity(0.08)
+        }
+        return .clear
     }
 
     private func reload() {
