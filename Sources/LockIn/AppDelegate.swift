@@ -13,7 +13,6 @@ private final class HostingWindowController: NSWindowController {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
     private var statusItem: NSStatusItem!
     private var mainTimer: Timer?
-    private var configWC: HostingWindowController?
     private var dashboardWC: HostingWindowController?
     private var statsWC: HostingWindowController?
     private var blockSetupWC: HostingWindowController?
@@ -193,7 +192,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             dashboardWC = makeHostingWindow(
                 rootView: DashboardView(
                     onStartBlocking: { [weak self] in self?.startBlocking() },
-                    onConfigure:     { [weak self] in self?.openConfig() },
                     onViewStats:     { [weak self] in self?.openStats() }
                 ),
                 title: "Lock In",
@@ -252,7 +250,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             menu.addItem(.separator())
             menu.addItem(item("Dashboard",       action: #selector(openDashboard), key: "d"))
             menu.addItem(item("Screen Time…",    action: #selector(openStats),     key: "t"))
-            menu.addItem(item("Configure…",      action: #selector(openConfig),    key: ","))
             menu.addItem(item("Start Blocking", action: #selector(startBlocking), key: "s"))
         }
 
@@ -263,21 +260,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     // MARK: - Actions
 
     @objc private func openDashboard() { showDashboard() }
-
-    @objc private func openConfig() {
-        if configWC == nil {
-            configWC = makeHostingWindow(
-                rootView: ConfigView(),
-                title: "Lock In – Configure",
-                size: NSSize(width: 520, height: 520),
-                style: [.titled, .closable, .miniaturizable]
-            ) { win, hosting in
-                hosting.autoresizingMask = [.width, .height]
-                win.setContentSize(hosting.fittingSize)
-            }
-        }
-        configWC?.showWindow(nil)
-    }
 
     @objc private func openStats() {
         // Closing an NSWindow only orders it out, so discard its hosting view before

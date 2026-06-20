@@ -19,14 +19,25 @@ struct BlockSetupView: View {
     @State private var checked: Set<String> = []
     @State private var isLoadingItems = true
     @State private var focusedTimeField: TimerField?
+    @State private var hasInitializedSelection = false
+    @State private var manageSection: ManageSection = .apps
+    @State private var appSearch = ""
+    @State private var newWebsite = ""
+    @State private var websiteError = ""
 
     private let durationOptions = [25, 60, 90]
     private enum SetupStep: String, CaseIterable {
         case list = "List"
         case timer = "Timer"
     }
+    private enum ManageSection: String, CaseIterable {
+        case apps = "Apps"
+        case websites = "Websites"
+        case limits = "Limits"
+    }
     @State private var step: SetupStep = .list
     @State private var hoveredStep: SetupStep?
+    @State private var hoveredManageSection: ManageSection?
 
     private var isCustomSelected: Bool {
         !durationOptions.contains(selectedMinutes)
@@ -141,32 +152,41 @@ struct BlockSetupView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(40)
-            } else if items.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "checklist")
-                        .font(.system(size: 32))
-                        .foregroundColor(.secondary.opacity(0.4))
-                    Text("No apps or websites configured")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                    Text("Add items in Configure first.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(40)
             } else {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(spacing: 18) {
                         if suggestedItems.count > 0 {
                             suggestionSection
                         }
-                        configSection
+                        if !items.isEmpty {
+                            configSection
+                        } else {
+                            emptySelectionState
+                        }
+                        manageSectionCard
                     }
+                    .padding(.vertical, 12)
                 }
                 .frame(maxHeight: .infinity)
             }
         }
+    }
+
+    private var emptySelectionState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checklist")
+                .font(.system(size: 32))
+                .foregroundColor(.secondary.opacity(0.4))
+            Text("No apps or websites selected yet")
+                .font(.body)
+                .foregroundColor(.secondary)
+            Text("Add what you want to block below, then continue to the timer.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
     }
 
     private var timerStep: some View {
@@ -188,7 +208,7 @@ struct BlockSetupView: View {
             }
 
             VStack(spacing: 14) {
-                Text("Session length")
+                Text("Presets")
                     .font(.headline.weight(.semibold))
                     .foregroundColor(.secondary)
 
@@ -205,10 +225,6 @@ struct BlockSetupView: View {
                 }
             }
 
-            Text("Selected: \(selectedMinutes) minutes")
-                .font(.headline)
-                .foregroundColor(.secondary)
-
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
@@ -219,7 +235,10 @@ struct BlockSetupView: View {
     private var configSection: some View {
         Group {
             if !configItems.isEmpty {
-                groupedItemsSection(apps: configAppItems, websites: configWebsiteItems)
+                VStack(spacing: 0) {
+                    sectionHeader("SELECTED")
+                    groupedItemsSection(apps: configAppItems, websites: configWebsiteItems)
+                }
             }
         }
     }
@@ -242,6 +261,308 @@ struct BlockSetupView: View {
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .padding(.bottom, 4)
+    }
+
+    private var manageSectionCard: some View {
+        VStack(spacing: 0) {
+            sectionHeader("CONFIGURE")
+            manageSectionPicker
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 14)
+
+            Group {
+                switch manageSection {
+                case .apps:
+                    appsManager
+                case .websites:
+                    websitesManager
+                case .limits:
+                    limitsManager
+                }
+            }
+        }
+    }
+
+    private var manageSectionPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(ManageSection.allCases, id: \.self) { section in
+                Button {
+                    manageSection = section
+                } label: {
+                    Text(section.rawValue)
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(manageSectionForeground(for: section))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .background(manageSectionBackground(for: section))
+                }
+                .buttonStyle(.plain)
+                .onHover { isHovering in
+                    hoveredManageSection = isHovering ? section : (hoveredManageSection == section ? nil : hoveredManageSection)
+                }
+
+                if section != ManageSection.allCases.last {
+                    Divider()
+                        .frame(height: 18)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.08))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private var appsManager: some View {
+        let displayedApps = Array(filteredInstalledApps.prefix(10))
+
+        return VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Search apps…", text: $appSearch)
+                    .textFieldStyle(.plain)
+                if !appSearch.isEmpty {
+                    Button {
+                        appSearch = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .appCard(cornerRadius: 12)
+
+            if displayedApps.isEmpty {
+                HStack {
+                    Text("No apps match your search")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .appCard(cornerRadius: 14)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(displayedApps.enumerated()), id: \.element.id) { index, app in
+                        appConfigRow(app)
+                        if index < displayedApps.count - 1 {
+                            Divider().padding(.leading, 52)
+                        }
+                    }
+                }
+                .appCard(cornerRadius: 14)
+            }
+
+            HStack {
+                let count = service.config.blockedApps.count
+                Text(count == 0 ? "No apps selected yet" : "\(count) app\(count == 1 ? "" : "s") ready to block")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+    }
+
+    private func appConfigRow(_ app: AppInfo) -> some View {
+        HStack(spacing: 12) {
+            Toggle("", isOn: blockedAppBinding(app.name))
+                .labelsHidden()
+                .toggleStyle(.checkbox)
+
+            Image(nsImage: app.icon)
+                .resizable()
+                .frame(width: 22, height: 22)
+
+            Text(app.name)
+                .font(.body)
+                .lineLimit(1)
+
+            Spacer()
+
+            if let existingItem = items.first(where: { $0.isApp && $0.blockingName == app.name }) {
+                Text(existingItem.category.rawValue)
+                    .font(.body)
+                    .foregroundColor(existingItem.category.color)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(existingItem.category.color.opacity(0.10))
+                    .cornerRadius(5)
+                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(existingItem.category.color.opacity(0.30), lineWidth: 1.0))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    private var websitesManager: some View {
+        VStack(spacing: 12) {
+            if service.config.blockedWebsites.isEmpty {
+                HStack {
+                    Text("No websites added yet")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .appCard(cornerRadius: 14)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(service.config.blockedWebsites.enumerated()), id: \.element) { index, site in
+                        websiteConfigRow(site)
+                        if index < service.config.blockedWebsites.count - 1 {
+                            Divider().padding(.leading, 52)
+                        }
+                    }
+                }
+                .appCard(cornerRadius: 14)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    TextField("Add domain (e.g. facebook.com)", text: $newWebsite)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .appCard(cornerRadius: 12)
+                        .onSubmit { addWebsite() }
+
+                    Button("Add") {
+                        addWebsite()
+                    }
+                    .buttonStyle(FooterCapsuleButtonStyle(kind: .primary))
+                    .disabled(newWebsite.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
+                if !websiteError.isEmpty {
+                    Text(websiteError)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
+            }
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Instant tab blocking")
+                        .font(.footnote.weight(.medium))
+                    Text(service.primedBrowserIDs.isEmpty
+                        ? "Not set up — open browsers, then tap Setup"
+                        : "\(service.primedBrowserIDs.count) browser\(service.primedBrowserIDs.count == 1 ? "" : "s") authorised")
+                        .font(.footnote)
+                        .foregroundColor(service.primedBrowserIDs.isEmpty ? .orange : .secondary)
+                }
+                Spacer()
+                Button("Setup…") {
+                    grantBrowserPermissions()
+                }
+                .buttonStyle(FooterCapsuleButtonStyle(kind: .secondary))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .appCard(cornerRadius: 14)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+    }
+
+    private func websiteConfigRow(_ site: String) -> some View {
+        HStack(spacing: 12) {
+            Toggle("", isOn: blockedWebsiteBinding(site))
+                .labelsHidden()
+                .toggleStyle(.checkbox)
+
+            Image(systemName: "globe")
+                .foregroundColor(service.config.category(for: site).color)
+                .frame(width: 20)
+
+            Text(site)
+                .font(.body)
+
+            Spacer()
+
+            Text(service.config.category(for: site).rawValue)
+                .font(.body)
+                .foregroundColor(service.config.category(for: site).color)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(service.config.category(for: site).color.opacity(0.10))
+                .cornerRadius(5)
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(service.config.category(for: site).color.opacity(0.30), lineWidth: 1.0))
+
+            Button {
+                service.config.blockedWebsites.removeAll { $0 == site }
+                service.saveConfig()
+                loadItems()
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    private let limitPresets = [(0, "Off"), (5, "5m"), (10, "10m"), (15, "15m"), (30, "30m"), (60, "1h"), (90, "90m"), (120, "2h")]
+    private let limitCategories: [AppCategory] = [.entertainment, .social, .work, .development, .communication, .creative]
+
+    private var limitsManager: some View {
+        VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Daily screen-time alerts")
+                    .font(.headline)
+                Text("Get a notification when you exceed a category limit today. Resets at midnight.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 0) {
+                ForEach(Array(limitCategories.enumerated()), id: \.element.id) { index, category in
+                    HStack(spacing: 12) {
+                        Image(systemName: category.icon)
+                            .frame(width: 20)
+                            .foregroundColor(category.color)
+                        Text(category.rawValue)
+                            .font(.body)
+                        Spacer()
+                        Picker("", selection: limitBinding(category)) {
+                            ForEach(limitPresets, id: \.0) { mins, label in
+                                Text(label).tag(mins)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 90)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+
+                    if index < limitCategories.count - 1 {
+                        Divider().padding(.leading, 48)
+                    }
+                }
+            }
+            .appCard(cornerRadius: 14)
+
+            HStack {
+                let active = limitCategories.filter {
+                    (service.config.categoryLimits[$0.rawValue] ?? 0) > 0
+                }.count
+                Text(active == 0 ? "No limits set" : "\(active) limit\(active == 1 ? "" : "s") active")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
     }
 
     private func groupedItemsSection(apps: [BlockItem], websites: [BlockItem]) -> some View {
@@ -388,6 +709,26 @@ struct BlockSetupView: View {
         return .clear
     }
 
+    private func manageSectionBackground(for section: ManageSection) -> some View {
+        Capsule()
+            .fill(manageSectionFill(for: section))
+            .padding(2)
+    }
+
+    private func manageSectionForeground(for section: ManageSection) -> Color {
+        manageSection == section ? .primary : .secondary
+    }
+
+    private func manageSectionFill(for section: ManageSection) -> Color {
+        if manageSection == section {
+            return Color.white.opacity(0.16)
+        }
+        if hoveredManageSection == section {
+            return Color.white.opacity(0.08)
+        }
+        return .clear
+    }
+
     // MARK: - Data loading
 
     private var configItems: [BlockItem] { items.filter(\.isFromConfig).sorted { $0.todayDuration > $1.todayDuration } }
@@ -396,6 +737,11 @@ struct BlockSetupView: View {
     private var suggestedItems: [BlockItem] { items.filter { !$0.isFromConfig }.sorted { $0.todayDuration > $1.todayDuration } }
     private var suggestedAppItems: [BlockItem] { suggestedItems.filter(\.isApp) }
     private var suggestedWebsiteItems: [BlockItem] { suggestedItems.filter { !$0.isApp } }
+    private var filteredInstalledApps: [AppInfo] {
+        let apps = AppScanner.shared.installedApps()
+        guard !appSearch.isEmpty else { return apps }
+        return apps.filter { $0.name.localizedCaseInsensitiveContains(appSearch) }
+    }
 
     private func loadItems() {
         let config = service.config
@@ -403,6 +749,7 @@ struct BlockSetupView: View {
         let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Lock In"
         let selfBundleID = Bundle.main.bundleIdentifier ?? ""
         isLoadingItems = true
+        let existingChecked = checked
 
         DispatchQueue.global(qos: .userInitiated).async {
             var result: [BlockItem] = []
@@ -501,10 +848,120 @@ struct BlockSetupView: View {
 
             DispatchQueue.main.async {
                 self.items = result
-                self.checked = Set(result.map(\.id))
+                if self.hasInitializedSelection {
+                    let newIDs = Set(result.map(\.id))
+                    let configIDs = Set(result.filter(\.isFromConfig).map(\.id))
+                    self.checked = existingChecked.intersection(newIDs).union(configIDs)
+                } else {
+                    self.checked = Set(result.map(\.id))
+                    self.hasInitializedSelection = true
+                }
                 self.isLoadingItems = false
             }
         }
+    }
+
+    private func blockedAppBinding(_ name: String) -> Binding<Bool> {
+        Binding(
+            get: { service.config.blockedApps.contains(name) },
+            set: { isOn in
+                if isOn {
+                    if !service.config.blockedApps.contains(name) {
+                        service.config.blockedApps.append(name)
+                    }
+                } else {
+                    service.config.blockedApps.removeAll { $0 == name }
+                }
+                service.saveConfig()
+                loadItems()
+            }
+        )
+    }
+
+    private func blockedWebsiteBinding(_ site: String) -> Binding<Bool> {
+        Binding(
+            get: { checked.contains("\(site):web") },
+            set: { isOn in
+                let id = "\(site):web"
+                if isOn {
+                    checked.insert(id)
+                } else {
+                    checked.remove(id)
+                }
+            }
+        )
+    }
+
+    private func addWebsite() {
+        guard let site = DomainMatcher.normalizeHost(newWebsite) else { return }
+
+        if service.config.blockedWebsites.contains(site) {
+            websiteError = "\(site) is already in the list"
+            return
+        }
+        guard site.contains(".") else {
+            websiteError = "Enter a valid domain (e.g. facebook.com)"
+            return
+        }
+
+        service.config.blockedWebsites.insert(site, at: 0)
+        service.saveConfig()
+        checked.insert("\(site):web")
+        newWebsite = ""
+        websiteError = ""
+        loadItems()
+    }
+
+    private func grantBrowserPermissions() {
+        let alert = NSAlert()
+        alert.messageText = "Grant Browser Permissions"
+        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt.\n\nIf you previously clicked Don't Allow, open System Settings → Privacy & Security → Automation and enable Lock In there."
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            BlockerService.shared.primeBrowserPermissions {
+                self.checkForDeniedBrowsers()
+            }
+        } else if response == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+        }
+    }
+
+    private func checkForDeniedBrowsers() {
+        let runningUnprimed = BlockerService.shared.knownBrowserBundleIDs.filter { bid in
+            NSRunningApplication.runningApplications(withBundleIdentifier: bid).first != nil &&
+            !BlockerService.shared.primedBrowserIDs.contains(bid)
+        }
+        guard !runningUnprimed.isEmpty else { return }
+
+        let browserList = runningUnprimed
+            .map(BlockerService.shared.browserName(forBundleID:))
+            .joined(separator: ", ")
+
+        let alert = NSAlert()
+        alert.messageText = "Permission Not Granted"
+        alert.informativeText = "\(browserList) denied permission. Lock In will keep those browsers open, but already-open tabs may need a manual refresh before website blocking fully takes effect.\n\nTo fix this, open System Settings → Privacy & Security → Automation and enable Lock In for each browser you use. macOS will not re-show the prompt automatically after you click Don't Allow."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "OK")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+        }
+    }
+
+    private func limitBinding(_ category: AppCategory) -> Binding<Int> {
+        Binding(
+            get: { service.config.categoryLimits[category.rawValue] ?? 0 },
+            set: { mins in
+                if mins == 0 {
+                    service.config.categoryLimits.removeValue(forKey: category.rawValue)
+                } else {
+                    service.config.categoryLimits[category.rawValue] = mins
+                }
+                service.saveConfig()
+            }
+        )
     }
 
     private func updateSelectedDuration(hours: String, minutes: String, seconds: String) {

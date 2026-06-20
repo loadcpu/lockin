@@ -16,7 +16,6 @@ struct DashboardView: View {
     @ObservedObject private var service = BlockerService.shared
     @ObservedObject private var store = ActivityStore.shared
     let onStartBlocking: () -> Void
-    let onConfigure: () -> Void
     let onViewStats: () -> Void
 
     @State private var focusToday: TimeInterval = 0
@@ -29,8 +28,7 @@ struct DashboardView: View {
             Spacer().frame(height: 16)
             Divider().padding(.horizontal, 20)
             quickStatsSection
-            Divider().padding(.horizontal, 20)
-            bottomBar
+            Spacer().frame(height: 20)
         }
         .frame(width: 340)
         .onAppear { refreshStats() }
@@ -139,35 +137,6 @@ struct DashboardView: View {
 
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-    }
-
-    // MARK: - Bottom bar
-
-    private var bottomBar: some View {
-        HStack {
-            Button("Configure", action: onConfigure)
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-                .font(.body)
-            Spacer()
-            Button("Quit") {
-                if service.isBlocking {
-                    let a = NSAlert()
-                    a.messageText = "Session Locked"
-                    a.informativeText = "You cannot quit while a blocking session is active. Wait for the timer to expire."
-                    a.alertStyle = .informational
-                    a.addButton(withTitle: "OK")
-                    a.runModal()
-                } else {
-                    NSApp.terminate(nil)
-                }
-            }
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-                .font(.body)
-        }
-        .padding(.horizontal, 24)
         .padding(.vertical, 14)
     }
 }
