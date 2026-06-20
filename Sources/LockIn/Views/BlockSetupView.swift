@@ -2,6 +2,11 @@ import SwiftUI
 import AppKit
 
 private let blockSetupAccentBlue = Color(nsColor: .controlAccentColor)
+private enum TimerField: Hashable {
+    case hours
+    case minutes
+    case seconds
+}
 
 struct BlockSetupView: View {
     let onStart: (_ minutes: Int, _ apps: [String], _ websites: [String]) -> Void
@@ -13,7 +18,7 @@ struct BlockSetupView: View {
     @State private var items: [BlockItem] = []
     @State private var checked: Set<String> = []
     @State private var isLoadingItems = true
-    @FocusState private var isCustomFieldFocused: Bool
+    @State private var focusedTimeField: TimerField?
 
     private let durationOptions = [25, 60, 90]
     private enum SetupStep: String, CaseIterable {
@@ -81,7 +86,7 @@ struct BlockSetupView: View {
                         guard current != .timer || checkedTotal > 0 else { return }
                         step = current
                         if current == .list {
-                            isCustomFieldFocused = false
+                            focusedTimeField = nil
                         }
                     } label: {
                         Text(current.rawValue)
@@ -167,18 +172,18 @@ struct BlockSetupView: View {
     private var timerStep: some View {
         VStack(spacing: 34) {
             VStack(spacing: 20) {
-                HStack(spacing: 100) {
+                HStack(spacing: 56) {
                     timeLabel("hr")
                     timeLabel("min")
                     timeLabel("sec")
                 }
 
-                HStack(alignment: .center, spacing: 10) {
-                    timeField(hoursText)
+                HStack(alignment: .center, spacing: 6) {
+                    timeField(hoursText, field: .hours)
                     timeSeparator
-                    timeField(minutesText)
+                    timeField(minutesText, field: .minutes)
                     timeSeparator
-                    timeField(secondsText)
+                    timeField(secondsText, field: .seconds)
                 }
             }
 
@@ -191,7 +196,7 @@ struct BlockSetupView: View {
                     ForEach(durationOptions, id: \.self) { mins in
                         Button {
                             selectedMinutes = mins
-                            isCustomFieldFocused = false
+                            focusedTimeField = nil
                         } label: {
                             Text("\(mins) min")
                         }
@@ -324,7 +329,7 @@ struct BlockSetupView: View {
             } else {
                 Button("Back") {
                     step = .list
-                    isCustomFieldFocused = false
+                    focusedTimeField = nil
                 }
                 .buttonStyle(FooterCapsuleButtonStyle(kind: .secondary))
 
@@ -344,7 +349,7 @@ struct BlockSetupView: View {
 
     private func confirmAndStart() {
         guard selectedMinutes > 0 else { return }
-        isCustomFieldFocused = false
+        focusedTimeField = nil
 
         guard selectedMinutes > 120 else {
             onStart(selectedMinutes, checkedApps, checkedSites)
@@ -524,7 +529,7 @@ struct BlockSetupView: View {
         Text(text)
             .font(.title2.weight(.semibold))
             .foregroundColor(.secondary)
-            .frame(width: 170)
+            .frame(width: 150)
     }
 
     private var timeSeparator: some View {
@@ -534,18 +539,110 @@ struct BlockSetupView: View {
             .offset(y: -8)
     }
 
-    private func timeField(_ binding: Binding<String>) -> some View {
-        TextField("00", text: binding)
-            .textFieldStyle(.plain)
-            .font(.system(size: 108, weight: .ultraLight, design: .rounded))
-            .monospacedDigit()
-            .multilineTextAlignment(.center)
-            .frame(width: 170)
-            .focused($isCustomFieldFocused)
+    private func timeField(_ binding: Binding<String>, field: TimerField) -> some View {
+        SelectAllTimerTextField(text: binding, focusedField: $focusedTimeField, field: field)
+            .frame(width: 150)
     }
 }
 
 // MARK: - Supporting types
+
+private struct SelectAllTimerTextField: NSViewRepresentable {
+    @Binding var text: String
+    @Binding var focusedField: TimerField?
+    let field: TimerField
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> SelectAllNSTextField {
+        let textField = SelectAllNSTextField()
+        textField.delegate = context.coordinator
+        textField.isBordered = false
+        textField.isBezeled = false
+        textField.drawsBackground = false
+        textField.isEditable = true
+        textField.isSelectable = true
+        textField.focusRingType = .none
+        textField.alignment = .center
+        textField.font = .systemFont(ofSize: 108, weight: .light)
+        if let descriptor = textField.font?.fontDescriptor.withDesign(.rounded) {
+            textField.font = NSFont(descriptor: descriptor, size: 108)
+        }
+        textField.maximumNumberOfLines = 1
+        textField.lineBreakMode = .byClipping
+        textField.usesSingleLineMode = true
+        textField.cell?.wraps = false
+        textField.cell?.isScrollable = true
+        textField.stringValue = text
+        textField.onFocus = {
+            focusedField = field
+        }
+        return textField
+    }
+
+    func updateNSView(_ nsView: SelectAllNSTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        nsView.onFocus = {
+            focusedField = field
+        }
+
+        if focusedField == field, nsView.window?.firstResponder != nsView.currentEditor() {
+            nsView.window?.makeFirstResponder(nsView)
+            DispatchQueue.main.async {
+                guard focusedField == field else { return }
+                nsView.currentEditor()?.selectAll(nil)
+            }
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: SelectAllTimerTextField
+
+        init(_ parent: SelectAllTimerTextField) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else { return }
+            parent.text = textField.stringValue
+        }
+
+        func controlTextDidBeginEditing(_ notification: Notification) {
+            parent.focusedField = parent.field
+            guard let textField = notification.object as? NSTextField else { return }
+            DispatchQueue.main.async {
+                textField.currentEditor()?.selectAll(nil)
+            }
+        }
+    }
+}
+
+private final class SelectAllNSTextField: NSTextField {
+    var onFocus: (() -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let becameFirstResponder = super.becomeFirstResponder()
+        if becameFirstResponder {
+            onFocus?()
+            DispatchQueue.main.async { [weak self] in
+                self?.currentEditor()?.selectAll(nil)
+            }
+        }
+        return becameFirstResponder
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onFocus?()
+        super.mouseDown(with: event)
+        DispatchQueue.main.async { [weak self] in
+            self?.currentEditor()?.selectAll(nil)
+        }
+    }
+}
 
 private struct BlockItem: Identifiable {
     let displayName: String
