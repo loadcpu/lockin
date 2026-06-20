@@ -103,9 +103,6 @@ struct StatsView: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 12)
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
         .appWindowSurface()
     }
 
