@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 import TimerInputSupport
-import BlockSetupPresentationSupport
 
 private let blockSetupAccentBlue = Color(nsColor: .controlAccentColor)
 private let timerFieldWidth: CGFloat = 126
@@ -145,25 +144,17 @@ struct BlockSetupView: View {
     // MARK: - Items list
 
     private var itemList: some View {
-        let presentation = BlockSetupListPresentation.derive(
-            isLoadingItems: isLoadingItems,
-            itemCount: items.count,
-            suggestedCount: suggestedItems.count
-        )
-
         ScrollView {
             VStack(spacing: 18) {
-                if presentation.showsSuggestions {
+                if suggestedItems.count > 0 {
                     suggestionSection
                 }
-                if presentation.showsSelectedItems {
+                if !items.isEmpty {
                     configSection
-                } else if presentation.showsEmptySelectionState {
+                } else {
                     emptySelectionState
                 }
-                if presentation.showsConfigureSection {
-                    manageSectionCard
-                }
+                manageSectionCard
             }
             .padding(.vertical, 12)
         }
@@ -1061,8 +1052,11 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
         }
         nsView.applyEditorAppearance()
 
-        if focusedField == field, nsView.window?.firstResponder != nsView.currentEditor() {
-            nsView.window?.makeFirstResponder(nsView)
+        if focusedField == field,
+           let window = nsView.window,
+           window.firstResponder !== nsView,
+           window.firstResponder !== nsView.currentEditor() {
+            window.makeFirstResponder(nsView)
             DispatchQueue.main.async {
                 guard focusedField == field else { return }
                 nsView.applyEditorAppearance()
@@ -1157,19 +1151,17 @@ private final class SelectAllNSTextField: NSTextField {
     override func becomeFirstResponder() -> Bool {
         let becameFirstResponder = super.becomeFirstResponder()
         if becameFirstResponder {
-            onFocus?()
             DispatchQueue.main.async { [weak self] in
                 self?.applyEditorAppearance()
-                self?.currentEditor()?.selectAll(nil)
             }
         }
         return becameFirstResponder
     }
 
     override func mouseDown(with event: NSEvent) {
-        onFocus?()
         super.mouseDown(with: event)
         DispatchQueue.main.async { [weak self] in
+            self?.onFocus?()
             self?.applyEditorAppearance()
             self?.currentEditor()?.selectAll(nil)
         }
