@@ -1173,7 +1173,7 @@ private final class TimerDigitsFormatter: Formatter {
         guard resolved != partialString else { return true }
 
         partialStringPtr.pointee = resolved as NSString
-        proposedSelRangePtr?.pointee = NSRange(location: resolved.count, length: 0)
+        proposedSelRangePtr?.pointee = origSelRange
         return false
     }
 }
