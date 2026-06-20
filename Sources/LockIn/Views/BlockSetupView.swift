@@ -46,6 +46,19 @@ struct BlockSetupView: View {
     @State private var hoveredStep: SetupStep?
     @State private var hoveredManageSection: ManageSection?
 
+    init(
+        onStart: @escaping (_ minutes: Int, _ apps: [String], _ websites: [String]) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.onStart = onStart
+        self.onCancel = onCancel
+
+        let seededItems = Self.initialConfigItems(from: BlockerService.shared.config)
+        _items = State(initialValue: seededItems)
+        _checked = State(initialValue: Set(seededItems.map(\.id)))
+        _hasInitializedSelection = State(initialValue: !seededItems.isEmpty)
+    }
+
     private var isCustomSelected: Bool {
         !durationOptions.contains(selectedMinutes)
     }
@@ -146,12 +159,12 @@ struct BlockSetupView: View {
     private var itemList: some View {
         ScrollView {
             VStack(spacing: 18) {
-                if suggestedItems.count > 0 {
+                if !suggestedItems.isEmpty {
                     suggestionSection
                 }
                 if !items.isEmpty {
                     configSection
-                } else {
+                } else if !isLoadingItems {
                     emptySelectionState
                 }
                 manageSectionCard
@@ -733,6 +746,37 @@ struct BlockSetupView: View {
         let apps = AppScanner.shared.installedApps()
         guard !appSearch.isEmpty else { return apps }
         return apps.filter { $0.name.localizedCaseInsensitiveContains(appSearch) }
+    }
+
+    private static func initialConfigItems(from config: Config) -> [BlockItem] {
+        let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Lock In"
+
+        let appItems = config.blockedApps.compactMap { appName -> BlockItem? in
+            guard appName.caseInsensitiveCompare(selfName) != .orderedSame else { return nil }
+            return BlockItem(
+                displayName: appName,
+                blockingName: appName,
+                isApp: true,
+                isFromConfig: true,
+                todayDuration: 0,
+                category: config.category(for: appName),
+                icon: nil
+            )
+        }
+
+        let websiteItems = config.blockedWebsites.map { domain in
+            BlockItem(
+                displayName: domain,
+                blockingName: domain,
+                isApp: false,
+                isFromConfig: true,
+                todayDuration: 0,
+                category: config.category(for: domain),
+                icon: nil
+            )
+        }
+
+        return appItems + websiteItems
     }
 
     private func loadItems() {
