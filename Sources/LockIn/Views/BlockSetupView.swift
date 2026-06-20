@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import TimerInputSupport
 
 private let blockSetupAccentBlue = Color(nsColor: .controlAccentColor)
 private enum TimerField: Hashable {
@@ -966,35 +967,21 @@ struct BlockSetupView: View {
     }
 
     private func updateSelectedDuration(hours: String, minutes: String, seconds: String) {
-        let sanitizedHours = sanitizeTimePart(hours, maxLength: 2)
-        let sanitizedMinutes = sanitizeTimePart(minutes, maxLength: 2)
-        let sanitizedSeconds = sanitizeTimePart(seconds, maxLength: 2)
+        let normalized = TimerInputRules.normalized(hours: hours, minutes: minutes, seconds: seconds)
 
-        hourInput = sanitizedHours
-        minuteInput = sanitizedMinutes
-        secondInput = sanitizedSeconds
-
-        let hoursValue = min(Int(sanitizedHours) ?? 0, 23)
-        let minutesValue = min(Int(sanitizedMinutes) ?? 0, 59)
-        let secondsValue = min(Int(sanitizedSeconds) ?? 0, 59)
-        let totalMinutes = hoursValue * 60 + minutesValue + (secondsValue > 0 ? 1 : 0)
-
-        selectedMinutes = min(totalMinutes, 1440)
+        hourInput = normalized.hoursText
+        minuteInput = normalized.minutesText
+        secondInput = normalized.secondsText
+        selectedMinutes = normalized.totalMinutes
         customText = "\(selectedMinutes)"
     }
 
     private func syncTimeFieldsFromSelection() {
-        let hours = selectedMinutes / 60
-        let minutes = selectedMinutes % 60
-
-        hourInput = String(format: "%02d", hours)
-        minuteInput = String(format: "%02d", minutes)
-        secondInput = "00"
+        let fields = TimerInputRules.fields(fromTotalMinutes: selectedMinutes)
+        hourInput = fields.hoursText
+        minuteInput = fields.minutesText
+        secondInput = fields.secondsText
         customText = "\(selectedMinutes)"
-    }
-
-    private func sanitizeTimePart(_ value: String, maxLength: Int) -> String {
-        String(value.filter(\.isNumber).prefix(maxLength))
     }
 
     private func timeLabel(_ text: String) -> some View {
@@ -1060,6 +1047,10 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
         if nsView.stringValue != text {
             nsView.stringValue = text
         }
+        if let editor = nsView.currentEditor(), editor.string != text {
+            editor.string = text
+            editor.selectedRange = NSRange(location: text.count, length: 0)
+        }
         nsView.onFocus = {
             focusedField = field
         }
@@ -1083,7 +1074,7 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 
         func controlTextDidChange(_ notification: Notification) {
             guard let textField = notification.object as? NSTextField else { return }
-            parent.text = textField.stringValue
+            parent.text = TimerInputRules.sanitize(textField.stringValue)
         }
 
         func controlTextDidBeginEditing(_ notification: Notification) {
@@ -1096,12 +1087,50 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
     }
 }
 
+private final class TimerDigitsFormatter: Formatter {
+    override func string(for obj: Any?) -> String? {
+        guard let string = obj as? String else { return nil }
+        return TimerInputRules.sanitize(string)
+    }
+
+    override func getObjectValue(
+        _ obj: AutoreleasingUnsafeMutablePointer<AnyObject?>?,
+        for string: String,
+        errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
+    ) -> Bool {
+        obj?.pointee = TimerInputRules.sanitize(string) as NSString
+        return true
+    }
+
+    override func isPartialStringValid(
+        _ partialStringPtr: AutoreleasingUnsafeMutablePointer<NSString>,
+        proposedSelectedRange proposedSelRangePtr: NSRangePointer?,
+        originalString origString: String,
+        originalSelectedRange origSelRange: NSRange,
+        errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
+    ) -> Bool {
+        let partialString = partialStringPtr.pointee as String
+        let sanitized = TimerInputRules.sanitize(partialString)
+        guard sanitized != partialString else { return true }
+
+        partialStringPtr.pointee = sanitized as NSString
+        proposedSelRangePtr?.pointee = NSRange(location: sanitized.count, length: 0)
+        return false
+    }
+}
+
 private final class SelectAllNSTextField: NSTextField {
     var onFocus: (() -> Void)?
 
     func applyEditorAppearance() {
         guard let editor = currentEditor() as? NSTextView else { return }
         editor.insertionPointColor = .clear
+        editor.backgroundColor = .clear
+        editor.drawsBackground = false
+        editor.selectedTextAttributes = [
+            .backgroundColor: NSColor.controlAccentColor,
+            .foregroundColor: NSColor.white.withAlphaComponent(0.95)
+        ]
     }
 
     override func becomeFirstResponder() -> Bool {
@@ -1123,41 +1152,6 @@ private final class SelectAllNSTextField: NSTextField {
             self?.applyEditorAppearance()
             self?.currentEditor()?.selectAll(nil)
         }
-    }
-}
-
-private final class TimerDigitsFormatter: Formatter {
-    override func string(for obj: Any?) -> String? {
-        obj as? String
-    }
-
-    override func getObjectValue(
-        _ obj: AutoreleasingUnsafeMutablePointer<AnyObject?>?,
-        for string: String,
-        errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
-    ) -> Bool {
-        obj?.pointee = string as NSString
-        return true
-    }
-
-    override func isPartialStringValid(
-        _ partialString: String,
-        newEditingString newString: AutoreleasingUnsafeMutablePointer<NSString?>?,
-        errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
-    ) -> Bool {
-        if partialString.isEmpty {
-            return true
-        }
-
-        let digitsOnly = partialString.filter(\.isNumber)
-        let limitedDigits = String(digitsOnly.prefix(2))
-
-        if limitedDigits != partialString {
-            newString?.pointee = limitedDigits as NSString
-            return false
-        }
-
-        return true
     }
 }
 
