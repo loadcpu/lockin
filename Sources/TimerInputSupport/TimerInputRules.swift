@@ -21,6 +21,22 @@ public enum TimerInputRules {
         return proposedText.count <= maxFieldLength
     }
 
+    public static func resolvedTextAfterEditing(currentText: String, proposedText: String) -> String {
+        guard proposedText == sanitize(proposedText) else { return currentText }
+        guard proposedText.count <= maxFieldLength else { return currentText }
+        return proposedText
+    }
+
+    public static func validatedPartialString(originalText: String, proposedText: String) -> String {
+        if proposedText.isEmpty {
+            return proposedText
+        }
+
+        guard proposedText == sanitize(proposedText) else { return originalText }
+        guard proposedText.count <= maxFieldLength else { return originalText }
+        return proposedText
+    }
+
     public static func normalized(hours: String, minutes: String, seconds: String) -> NormalizedTimerInput {
         let sanitizedHours = sanitize(hours)
         let sanitizedMinutes = sanitize(minutes)

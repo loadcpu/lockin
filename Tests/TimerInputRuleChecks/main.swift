@@ -80,6 +80,41 @@ struct TimerInputRuleChecksMain {
             "Sanitize should remove letters entirely"
         )
 
+        runner.expect(
+            TimerInputRules.resolvedTextAfterEditing(currentText: "00", proposedText: "a") == "00",
+            "Typing a letter should keep the existing field value unchanged"
+        )
+
+        runner.expect(
+            TimerInputRules.resolvedTextAfterEditing(currentText: "12", proposedText: "123") == "12",
+            "Typing a third digit should keep the existing field value unchanged"
+        )
+
+        runner.expect(
+            TimerInputRules.resolvedTextAfterEditing(currentText: "00", proposedText: "1a") == "00",
+            "Mixed alphanumeric input should keep the existing field value unchanged"
+        )
+
+        runner.expect(
+            TimerInputRules.resolvedTextAfterEditing(currentText: "00", proposedText: "7") == "7",
+            "Valid numeric edits should still update the field"
+        )
+
+        runner.expect(
+            TimerInputRules.validatedPartialString(originalText: "00", proposedText: "a") == "00",
+            "Formatter validation should keep the original value when a letter is typed"
+        )
+
+        runner.expect(
+            TimerInputRules.validatedPartialString(originalText: "12", proposedText: "123") == "12",
+            "Formatter validation should keep the original value when a third digit is typed"
+        )
+
+        runner.expect(
+            TimerInputRules.validatedPartialString(originalText: "12", proposedText: "") == "",
+            "Formatter validation should still allow clearing the field"
+        )
+
         let clamped = TimerInputRules.normalized(hours: "99", minutes: "88", seconds: "77")
         runner.expect(clamped.hoursText == "99", "Hours text should preserve the typed digits")
         runner.expect(clamped.minutesText == "88", "Minutes text should preserve the typed digits")

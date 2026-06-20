@@ -1,8 +1,12 @@
 import SwiftUI
 import AppKit
 import TimerInputSupport
+import BlockSetupPresentationSupport
 
 private let blockSetupAccentBlue = Color(nsColor: .controlAccentColor)
+private let timerFieldWidth: CGFloat = 126
+private let timerFieldHeight: CGFloat = 172
+private let timerSeparatorWidth: CGFloat = 28
 private enum TimerField: Hashable {
     case hours
     case minutes
@@ -141,34 +145,29 @@ struct BlockSetupView: View {
     // MARK: - Items list
 
     private var itemList: some View {
-        Group {
-            if isLoadingItems {
-                VStack(spacing: 10) {
-                    ProgressView()
-                    Text("Loading apps and websites…")
-                        .font(.body)
-                        .foregroundColor(.secondary)
+        let presentation = BlockSetupListPresentation.derive(
+            isLoadingItems: isLoadingItems,
+            itemCount: items.count,
+            suggestedCount: suggestedItems.count
+        )
+
+        ScrollView {
+            VStack(spacing: 18) {
+                if presentation.showsSuggestions {
+                    suggestionSection
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(40)
-            } else {
-                ScrollView {
-                    VStack(spacing: 18) {
-                        if suggestedItems.count > 0 {
-                            suggestionSection
-                        }
-                        if !items.isEmpty {
-                            configSection
-                        } else {
-                            emptySelectionState
-                        }
-                        manageSectionCard
-                    }
-                    .padding(.vertical, 12)
+                if presentation.showsSelectedItems {
+                    configSection
+                } else if presentation.showsEmptySelectionState {
+                    emptySelectionState
                 }
-                .frame(maxHeight: .infinity)
+                if presentation.showsConfigureSection {
+                    manageSectionCard
+                }
             }
+            .padding(.vertical, 12)
         }
+        .frame(maxHeight: .infinity)
     }
 
     private var emptySelectionState: some View {
@@ -190,16 +189,16 @@ struct BlockSetupView: View {
 
     private var timerStep: some View {
         VStack(spacing: 34) {
-            VStack(spacing: 20) {
-                HStack(alignment: .center, spacing: 6) {
+            VStack(spacing: -6) {
+                HStack(alignment: .center, spacing: 0) {
                     timeLabel("hr")
-                    timeSeparator.hidden()
+                    timeLabelSeparator
                     timeLabel("min")
-                    timeSeparator.hidden()
+                    timeLabelSeparator
                     timeLabel("sec")
                 }
 
-                HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .center, spacing: 0) {
                     timeField(hoursText, field: .hours)
                     timeSeparator
                     timeField(minutesText, field: .minutes)
@@ -988,7 +987,12 @@ struct BlockSetupView: View {
         Text(text)
             .font(.title2.weight(.regular))
             .foregroundColor(.secondary)
-            .frame(width: 140)
+            .frame(width: timerFieldWidth)
+    }
+
+    private var timeLabelSeparator: some View {
+        Color.clear
+            .frame(width: timerSeparatorWidth, height: 1)
     }
 
     private var timeSeparator: some View {
@@ -996,11 +1000,12 @@ struct BlockSetupView: View {
             .font(.system(size: 98, weight: .ultraLight, design: .rounded))
             .foregroundColor(.white.opacity(0.9))
             .offset(y: -8)
+            .frame(width: timerSeparatorWidth)
     }
 
     private func timeField(_ binding: Binding<String>, field: TimerField) -> some View {
         SelectAllTimerTextField(text: binding, focusedField: $focusedTimeField, field: field)
-            .frame(width: 140)
+            .frame(width: timerFieldWidth, height: timerFieldHeight)
     }
 }
 
@@ -1074,7 +1079,20 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 
         func controlTextDidChange(_ notification: Notification) {
             guard let textField = notification.object as? NSTextField else { return }
-            parent.text = TimerInputRules.sanitize(textField.stringValue)
+            let resolved = TimerInputRules.resolvedTextAfterEditing(
+                currentText: parent.text,
+                proposedText: textField.stringValue
+            )
+
+            if textField.stringValue != resolved {
+                textField.stringValue = resolved
+                if let editor = textField.currentEditor() {
+                    editor.string = resolved
+                    editor.selectAll(nil)
+                }
+            }
+
+            parent.text = resolved
         }
 
         func controlTextDidBeginEditing(_ notification: Notification) {
@@ -1110,11 +1128,14 @@ private final class TimerDigitsFormatter: Formatter {
         errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?
     ) -> Bool {
         let partialString = partialStringPtr.pointee as String
-        let sanitized = TimerInputRules.sanitize(partialString)
-        guard sanitized != partialString else { return true }
+        let resolved = TimerInputRules.validatedPartialString(
+            originalText: origString,
+            proposedText: partialString
+        )
+        guard resolved != partialString else { return true }
 
-        partialStringPtr.pointee = sanitized as NSString
-        proposedSelRangePtr?.pointee = NSRange(location: sanitized.count, length: 0)
+        partialStringPtr.pointee = resolved as NSString
+        proposedSelRangePtr?.pointee = NSRange(location: resolved.count, length: 0)
         return false
     }
 }
