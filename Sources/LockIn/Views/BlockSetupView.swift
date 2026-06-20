@@ -986,7 +986,7 @@ struct BlockSetupView: View {
         Text(text)
             .font(.title2.weight(.semibold))
             .foregroundColor(.secondary)
-            .frame(width: 150)
+            .frame(width: 142)
     }
 
     private var timeSeparator: some View {
@@ -998,13 +998,16 @@ struct BlockSetupView: View {
 
     private func timeField(_ binding: Binding<String>, field: TimerField) -> some View {
         SelectAllTimerTextField(text: binding, focusedField: $focusedTimeField, field: field)
-            .frame(width: 150)
+            .frame(width: 142)
     }
 }
 
 // MARK: - Supporting types
 
 private struct SelectAllTimerTextField: NSViewRepresentable {
+    private static let fontSize: CGFloat = 108
+    private static let digitKern: CGFloat = -7
+
     @Binding var text: String
     @Binding var focusedField: TimerField?
     let field: TimerField
@@ -1023,16 +1026,16 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
         textField.isSelectable = true
         textField.focusRingType = .none
         textField.alignment = .center
-        textField.font = .systemFont(ofSize: 108, weight: .light)
-        if let descriptor = textField.font?.fontDescriptor.withDesign(.rounded) {
-            textField.font = NSFont(descriptor: descriptor, size: 108)
-        }
         textField.maximumNumberOfLines = 1
         textField.lineBreakMode = .byClipping
         textField.usesSingleLineMode = true
         textField.cell?.wraps = false
         textField.cell?.isScrollable = true
-        textField.stringValue = text
+        textField.applyTimerAppearance(
+            text,
+            font: timerFont(),
+            kern: Self.digitKern
+        )
         textField.onFocus = {
             focusedField = field
         }
@@ -1041,7 +1044,13 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 
     func updateNSView(_ nsView: SelectAllNSTextField, context: Context) {
         if nsView.stringValue != text {
-            nsView.stringValue = text
+            nsView.applyTimerAppearance(
+                text,
+                font: timerFont(),
+                kern: Self.digitKern
+            )
+        } else {
+            nsView.applyEditorTracking(font: timerFont(), kern: Self.digitKern)
         }
         nsView.onFocus = {
             focusedField = field
@@ -1051,9 +1060,19 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
             nsView.window?.makeFirstResponder(nsView)
             DispatchQueue.main.async {
                 guard focusedField == field else { return }
+                nsView.applyEditorTracking(font: timerFont(), kern: Self.digitKern)
                 nsView.currentEditor()?.selectAll(nil)
             }
         }
+    }
+
+    private func timerFont() -> NSFont {
+        let baseFont = NSFont.systemFont(ofSize: Self.fontSize, weight: .ultraLight)
+        guard let descriptor = baseFont.fontDescriptor.withDesign(.rounded),
+              let roundedFont = NSFont(descriptor: descriptor, size: Self.fontSize) else {
+            return baseFont
+        }
+        return roundedFont
     }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
@@ -1070,8 +1089,12 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 
         func controlTextDidBeginEditing(_ notification: Notification) {
             parent.focusedField = parent.field
-            guard let textField = notification.object as? NSTextField else { return }
+            guard let textField = notification.object as? SelectAllNSTextField else { return }
             DispatchQueue.main.async {
+                textField.applyEditorTracking(
+                    font: self.parent.timerFont(),
+                    kern: SelectAllTimerTextField.digitKern
+                )
                 textField.currentEditor()?.selectAll(nil)
             }
         }
@@ -1080,6 +1103,29 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
 
 private final class SelectAllNSTextField: NSTextField {
     var onFocus: (() -> Void)?
+
+    func applyTimerAppearance(_ text: String, font: NSFont, kern: CGFloat) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .kern: kern,
+            .foregroundColor: NSColor.white.withAlphaComponent(0.9)
+        ]
+        attributedStringValue = NSAttributedString(string: text, attributes: attributes)
+        applyEditorTracking(font: font, kern: kern)
+    }
+
+    func applyEditorTracking(font: NSFont, kern: CGFloat) {
+        guard let editor = currentEditor() as? NSTextView else { return }
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+
+        editor.typingAttributes[NSAttributedString.Key.font] = font
+        editor.typingAttributes[NSAttributedString.Key.kern] = kern
+        editor.typingAttributes[NSAttributedString.Key.foregroundColor] = NSColor.white.withAlphaComponent(0.9)
+        editor.typingAttributes[NSAttributedString.Key.paragraphStyle] = paragraphStyle
+        editor.alignment = .center
+    }
 
     override func becomeFirstResponder() -> Bool {
         let becameFirstResponder = super.becomeFirstResponder()
