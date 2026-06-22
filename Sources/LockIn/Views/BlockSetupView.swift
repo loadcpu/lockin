@@ -6,6 +6,8 @@ private let blockSetupAccentBlue = Color(nsColor: .controlAccentColor)
 private let timerFieldWidth: CGFloat = 126
 private let timerFieldHeight: CGFloat = 172
 private let timerSeparatorWidth: CGFloat = 28
+private let timerSelectionCornerRadius: CGFloat = 16
+private let timerSelectionHeight: CGFloat = 122
 private enum TimerField: Hashable {
     case hours
     case minutes
@@ -1041,6 +1043,30 @@ struct BlockSetupView: View {
     private func timeField(_ binding: Binding<String>, field: TimerField) -> some View {
         SelectAllTimerTextField(text: binding, focusedField: $focusedTimeField, field: field)
             .frame(width: timerFieldWidth, height: timerFieldHeight)
+            .background {
+                if focusedTimeField == field {
+                    RoundedRectangle(cornerRadius: timerSelectionCornerRadius, style: .continuous)
+                        .fill(blockSetupAccentBlue)
+                        .frame(width: timerSelectionWidth(for: binding.wrappedValue), height: timerSelectionHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+    }
+
+    private func timerSelectionWidth(for text: String) -> CGFloat {
+        let displayText = text.isEmpty ? "00" : text
+        let font = timerFieldFont()
+        let width = (displayText as NSString).size(withAttributes: [.font: font]).width
+        return min(timerFieldWidth, ceil(width) + 18)
+    }
+
+    private func timerFieldFont() -> NSFont {
+        let baseFont = NSFont.systemFont(ofSize: 108, weight: .ultraLight)
+        if let descriptor = baseFont.fontDescriptor.withDesign(.rounded),
+           let roundedFont = NSFont(descriptor: descriptor, size: 108) {
+            return roundedFont
+        }
+        return baseFont
     }
 }
 
@@ -1187,7 +1213,7 @@ private final class SelectAllNSTextField: NSTextField {
         editor.backgroundColor = .clear
         editor.drawsBackground = false
         editor.selectedTextAttributes = [
-            .backgroundColor: NSColor.controlAccentColor,
+            .backgroundColor: NSColor.clear,
             .foregroundColor: NSColor.white.withAlphaComponent(0.95)
         ]
     }

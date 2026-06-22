@@ -6,11 +6,6 @@ private let dashboardAccentBlue = Color(
     green: 56.0 / 255.0,
     blue: 209.0 / 255.0
 )
-private let dashboardLinkBlue = Color(
-    red: 57.0 / 255.0,
-    green: 123.0 / 255.0,
-    blue: 247.0 / 255.0
-)
 
 struct DashboardView: View {
     @ObservedObject private var service = BlockerService.shared
@@ -19,7 +14,6 @@ struct DashboardView: View {
     let onViewStats: () -> Void
 
     @State private var focusToday: TimeInterval = 0
-
     var body: some View {
         VStack(spacing: 0) {
             heroSection
@@ -31,6 +25,9 @@ struct DashboardView: View {
             Spacer().frame(height: 20)
         }
         .frame(width: 340)
+        .background(
+            DashboardWindowSizer(trigger: service.isBlocking)
+        )
         .onAppear { refreshStats() }
         .onChange(of: store.todayTotal) { _ in refreshStats() }
     }
@@ -112,7 +109,11 @@ struct DashboardView: View {
                 Button("Statistics") { onViewStats() }
                     .buttonStyle(.plain)
                     .font(.footnote)
-                    .foregroundColor(dashboardLinkBlue)
+                    .foregroundColor(Color(
+                        red: 57.0 / 255.0,
+                        green: 123.0 / 255.0,
+                        blue: 247.0 / 255.0
+                    ))
             }
 
             if focusToday > 0 {
@@ -138,5 +139,39 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+}
+
+private struct DashboardWindowSizer: NSViewRepresentable {
+    let trigger: Bool
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            resizeWindow(from: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            resizeWindow(from: nsView)
+        }
+    }
+
+    private func resizeWindow(from view: NSView) {
+        guard
+            let window = view.window,
+            let hostingView = window.contentView as? NSHostingView<AnyView>
+        else {
+            return
+        }
+
+        hostingView.layoutSubtreeIfNeeded()
+        let fittingSize = hostingView.fittingSize
+        guard fittingSize.width > 0, fittingSize.height > 0 else { return }
+        guard window.contentRect(forFrameRect: window.frame).size != fittingSize else { return }
+
+        window.setContentSize(fittingSize)
     }
 }
