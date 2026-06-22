@@ -25,6 +25,7 @@ final class BlockerService: ObservableObject {
     private var limitBlockedWebsites: Set<String> = []
     private let websiteBlockQueue = DispatchQueue(label: "com.local.lockin.website-blocks", qos: .utility)
     private var browserWatcherListenerID: UUID?
+    private var automationPermissionAlertsInFlight: Set<String> = []
 
     private init() {
         browserWatcherListenerID = BrowserWatcher.shared.addListener { [weak self] domain, bundleID in
@@ -224,6 +225,60 @@ final class BlockerService: ObservableObject {
         knownBrowsers.first(where: { $0.bundleID == bundleID })?.name ?? bundleID
     }
 
+    func recordBrowserAutomationSuccess(bundleID: String) {
+        DispatchQueue.main.async {
+            guard self.knownBrowsers.contains(where: { $0.bundleID == bundleID }) else { return }
+            guard !self.primedBrowserIDs.contains(bundleID) else { return }
+            self.primedBrowserIDs.insert(bundleID)
+        }
+    }
+
+    func handleBrowserAutomationPermissionDenied(bundleID: String) {
+        DispatchQueue.main.async {
+            guard let browser = self.knownBrowsers.first(where: { $0.bundleID == bundleID }) else { return }
+            if self.primedBrowserIDs.contains(bundleID) {
+                self.primedBrowserIDs.remove(bundleID)
+            }
+            guard !self.automationPermissionAlertsInFlight.contains(bundleID) else { return }
+
+            self.automationPermissionAlertsInFlight.insert(bundleID)
+            self.presentBrowserAutomationAlert(for: browser)
+        }
+    }
+
+    func presentBrowserPermissionSetupAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Grant Browser Permissions"
+        alert.informativeText = "Open the browsers you use, then click Continue so macOS can ask for Automation access. If you already denied access, open System Settings → Privacy & Security → Automation."
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        prepareAlertForForeground(alert)
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            primeBrowserPermissions()
+        } else if response == .alertSecondButtonReturn {
+            openAutomationSystemSettings()
+        }
+    }
+
+    func presentBrowserPermissionDeniedAlert(bundleIDs: [String]) {
+        let browserList = bundleIDs
+            .map(browserName(forBundleID:))
+            .joined(separator: ", ")
+
+        let alert = NSAlert()
+        alert.messageText = "Permission Not Granted"
+        alert.informativeText = "\(browserList) still need Automation access for website stats and instant blocking. Open System Settings → Privacy & Security → Automation to enable Lock In."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "OK")
+        prepareAlertForForeground(alert)
+        if alert.runModal() == .alertFirstButtonReturn {
+            openAutomationSystemSettings()
+        }
+    }
+
     @discardableResult
     func forceQuitBrowsers(bundleIDs: [String]) -> [String] {
         var closed: [String] = []
@@ -247,9 +302,14 @@ final class BlockerService: ObservableObject {
     // Triggers the one-time macOS Automation permission dialog for each running browser.
     // Safe to call anytime; intended to be called during onboarding or from Config UI.
     func primeBrowserPermissions(completion: @escaping () -> Void = {}) {
+        primeBrowserPermissions(bundleIDs: nil, completion: completion)
+    }
+
+    func primeBrowserPermissions(bundleIDs: [String]?, completion: @escaping () -> Void = {}) {
         DispatchQueue.global(qos: .userInitiated).async {
             var primed = self.primedBrowserIDs
             for b in self.knownBrowsers {
+                if let bundleIDs, !bundleIDs.contains(b.bundleID) { continue }
                 guard NSRunningApplication
                     .runningApplications(withBundleIdentifier: b.bundleID).first != nil
                 else { continue }
@@ -268,6 +328,40 @@ final class BlockerService: ObservableObject {
                 completion()
             }
         }
+    }
+
+    private func presentBrowserAutomationAlert(for browser: Browser) {
+        let alert = NSAlert()
+        alert.messageText = "Allow \(browser.name)"
+        alert.informativeText = "Allow Lock In to read tabs in \(browser.name) for website stats and blocking."
+        alert.addButton(withTitle: "Try Again")
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Not Now")
+        prepareAlertForForeground(alert)
+
+        let response = alert.runModal()
+        automationPermissionAlertsInFlight.remove(browser.bundleID)
+
+        if response == .alertFirstButtonReturn {
+            primeBrowserPermissions(bundleIDs: [browser.bundleID])
+        } else if response == .alertSecondButtonReturn {
+            openAutomationSystemSettings()
+        }
+    }
+
+    private func prepareAlertForForeground(_ alert: NSAlert) {
+        NSApp.activate(ignoringOtherApps: true)
+        let window = alert.window
+        window.level = .modalPanel
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        window.center()
+        window.orderFrontRegardless()
+        window.makeKey()
+    }
+
+    private func openAutomationSystemSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: - Browser enforcement

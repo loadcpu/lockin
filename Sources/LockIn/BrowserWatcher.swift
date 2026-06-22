@@ -2,6 +2,12 @@ import AppKit
 import Foundation
 
 final class BrowserWatcher {
+    private enum QueryResult {
+        case success(String?)
+        case permissionDenied
+        case failed
+    }
+
     static let shared = BrowserWatcher()
     private let pollInterval: TimeInterval = 1.0
 
@@ -84,9 +90,18 @@ final class BrowserWatcher {
             return
         }
         let appName = front.localizedName ?? ""
-        let urlString = bundleID == "com.apple.Safari" ? querySafari() : queryChromium(appName)
-        let domain = urlString.flatMap { extractDomain($0) }
-        maybeFireCallback(domain: domain, bundleID: bundleID)
+        let result = bundleID == "com.apple.Safari" ? querySafari() : queryChromium(appName)
+        switch result {
+        case .success(let urlString):
+            BlockerService.shared.recordBrowserAutomationSuccess(bundleID: bundleID)
+            let domain = urlString.flatMap { extractDomain($0) }
+            maybeFireCallback(domain: domain, bundleID: bundleID)
+        case .permissionDenied:
+            BlockerService.shared.handleBrowserAutomationPermissionDenied(bundleID: bundleID)
+            maybeFireCallback(domain: nil, bundleID: bundleID)
+        case .failed:
+            maybeFireCallback(domain: nil, bundleID: bundleID)
+        }
     }
 
     private func maybeFireCallback(domain: String?, bundleID: String?) {
@@ -112,7 +127,7 @@ final class BrowserWatcher {
         return s
     }
 
-    private func querySafari() -> String? {
+    private func querySafari() -> QueryResult {
         let s = script(for: "Safari") {
             """
             tell application "Safari"
@@ -124,11 +139,13 @@ final class BrowserWatcher {
         }
         var err: NSDictionary?
         let result = s?.executeAndReturnError(&err)
-        guard err == nil else { return nil }
-        return result?.stringValue
+        if let err {
+            return isPermissionError(err) ? .permissionDenied : .failed
+        }
+        return .success(result?.stringValue)
     }
 
-    private func queryChromium(_ appName: String) -> String? {
+    private func queryChromium(_ appName: String) -> QueryResult {
         let s = script(for: appName) {
             """
             tell application "\(appName)"
@@ -140,8 +157,15 @@ final class BrowserWatcher {
         }
         var err: NSDictionary?
         let result = s?.executeAndReturnError(&err)
-        guard err == nil else { return nil }
-        return result?.stringValue
+        if let err {
+            return isPermissionError(err) ? .permissionDenied : .failed
+        }
+        return .success(result?.stringValue)
+    }
+
+    private func isPermissionError(_ error: NSDictionary) -> Bool {
+        guard let number = error[NSAppleScript.errorNumber] as? Int else { return false }
+        return number == -1743
     }
 
     // MARK: - Domain extraction

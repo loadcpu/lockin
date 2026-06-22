@@ -931,20 +931,7 @@ struct BlockSetupView: View {
     }
 
     private func grantBrowserPermissions() {
-        let alert = NSAlert()
-        alert.messageText = "Grant Browser Permissions"
-        alert.informativeText = "Open the browsers you use, then click Continue. macOS will ask permission to control each one — click Allow on each prompt.\n\nIf you previously clicked Don't Allow, open System Settings → Privacy & Security → Automation and enable Lock In there."
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Cancel")
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            BlockerService.shared.primeBrowserPermissions {
-                self.checkForDeniedBrowsers()
-            }
-        } else if response == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
-        }
+        BlockerService.shared.presentBrowserPermissionSetupAlert()
     }
 
     private func checkForDeniedBrowsers() {
@@ -954,18 +941,7 @@ struct BlockSetupView: View {
         }
         guard !runningUnprimed.isEmpty else { return }
 
-        let browserList = runningUnprimed
-            .map(BlockerService.shared.browserName(forBundleID:))
-            .joined(separator: ", ")
-
-        let alert = NSAlert()
-        alert.messageText = "Permission Not Granted"
-        alert.informativeText = "\(browserList) denied permission. Lock In will keep those browsers open, but already-open tabs may need a manual refresh before website blocking fully takes effect.\n\nTo fix this, open System Settings → Privacy & Security → Automation and enable Lock In for each browser you use. macOS will not re-show the prompt automatically after you click Don't Allow."
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "OK")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
-        }
+        BlockerService.shared.presentBrowserPermissionDeniedAlert(bundleIDs: runningUnprimed)
     }
 
     private func limitBinding(_ category: AppCategory) -> Binding<Int> {

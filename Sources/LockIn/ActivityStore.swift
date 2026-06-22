@@ -198,10 +198,14 @@ final class ActivityStore: ObservableObject {
         var byKey: [String: (appName: String, bundleID: String, domain: String?, duration: TimeInterval)] = [:]
 
         let trackedDomainUsage = aggregate(trackedEvents.filter { $0.domain != nil }, limit: Int.max)
-        let hasTrackedDomains = !trackedDomainUsage.isEmpty
+        let trackedBrowserBundleIDs = Set(
+            trackedEvents
+                .filter { $0.domain != nil }
+                .map(\.bundleID)
+        )
 
         for sample in screenTimeSamples {
-            if hasTrackedDomains && Self.browserBundleIDs.contains(sample.bundleID) {
+            if trackedBrowserBundleIDs.contains(sample.bundleID) {
                 continue
             }
             let key = sample.domain ?? sample.bundleID
