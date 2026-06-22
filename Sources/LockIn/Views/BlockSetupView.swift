@@ -32,7 +32,6 @@ struct BlockSetupView: View {
     @State private var manageSection: ManageSection = .apps
     @State private var appSearch = ""
     @State private var websiteSearch = ""
-    @State private var newWebsite = ""
     @State private var websiteError = ""
 
     private let durationOptions = [25, 60, 90]
@@ -346,14 +345,6 @@ struct BlockSetupView: View {
                 }
                 .appCard(cornerRadius: 14)
             }
-
-            HStack {
-                let count = checkedApps.count
-                Text(count == 0 ? "No apps selected yet" : "\(count) app\(count == 1 ? "" : "s") ready to block")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 8)
@@ -361,20 +352,49 @@ struct BlockSetupView: View {
 
     private var websitesManager: some View {
         let displayedSites = libraryWebsiteItems
+        let canAddSearchAsWebsite = canAddWebsite(from: websiteSearch)
 
         return VStack(spacing: 12) {
-            librarySearchField(placeholder: "Search websites…", text: $websiteSearch)
+            librarySearchField(
+                placeholder: "Search websites…",
+                text: $websiteSearch,
+                onSubmit: addWebsiteFromSearch
+            )
 
             if displayedSites.isEmpty {
-                HStack {
-                    Text(websiteSearch.isEmpty ? "No websites added yet" : "No websites match your search")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                    Spacer()
+                if canAddSearchAsWebsite {
+                    Button {
+                        addWebsiteFromSearch()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Add \(normalizedWebsiteCandidate ?? websiteSearch)")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundColor(.primary)
+                                Text("Press Return or click here to add this website")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(blockSetupAccentBlue)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .appCard(cornerRadius: 14)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    HStack {
+                        Text(websiteSearch.isEmpty ? "No websites added yet" : "No websites match your search")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .appCard(cornerRadius: 14)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .appCard(cornerRadius: 14)
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(displayedSites.enumerated()), id: \.element.id) { index, item in
@@ -387,26 +407,12 @@ struct BlockSetupView: View {
                 .appCard(cornerRadius: 14)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    TextField("Add domain (e.g. facebook.com)", text: $newWebsite)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .appCard(cornerRadius: 12)
-                        .onSubmit { addWebsite() }
-
-                    Button("Add") {
-                        addWebsite()
-                    }
-                    .buttonStyle(FooterCapsuleButtonStyle(kind: .primary))
-                    .disabled(newWebsite.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-
-                if !websiteError.isEmpty {
+            if !websiteError.isEmpty {
+                HStack {
                     Text(websiteError)
                         .font(.footnote)
                         .foregroundColor(.red)
+                    Spacer()
                 }
             }
 
@@ -723,12 +729,19 @@ struct BlockSetupView: View {
         )
     }
 
-    private func librarySearchField(placeholder: String, text: Binding<String>) -> some View {
+    private func librarySearchField(
+        placeholder: String,
+        text: Binding<String>,
+        onSubmit: (() -> Void)? = nil
+    ) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
+                .onSubmit {
+                    onSubmit?()
+                }
             if !text.wrappedValue.isEmpty {
                 Button {
                     text.wrappedValue = ""
@@ -899,8 +912,30 @@ struct BlockSetupView: View {
         }
     }
 
-    private func addWebsite() {
-        guard let site = DomainMatcher.normalizeHost(newWebsite) else { return }
+    private var normalizedWebsiteCandidate: String? {
+        DomainMatcher.normalizeHost(websiteSearch.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func canAddWebsite(from rawText: String) -> Bool {
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let site = DomainMatcher.normalizeHost(trimmed),
+              site.contains(".") else { return false }
+        return !service.config.blockedWebsites.contains(site)
+    }
+
+    private func addWebsiteFromSearch() {
+        let candidate = websiteSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        addWebsite(candidate)
+    }
+
+    private func addWebsite(_ rawWebsite: String) {
+        guard let site = DomainMatcher.normalizeHost(rawWebsite) else {
+            if !rawWebsite.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                websiteError = "Enter a valid domain (e.g. facebook.com)"
+            }
+            return
+        }
 
         if service.config.blockedWebsites.contains(site) {
             websiteError = "\(site) is already in the list"
@@ -914,7 +949,7 @@ struct BlockSetupView: View {
         service.config.blockedWebsites.insert(site, at: 0)
         service.saveConfig()
         checked.insert("\(site):web")
-        newWebsite = ""
+        websiteSearch = ""
         websiteError = ""
         loadItems()
     }
