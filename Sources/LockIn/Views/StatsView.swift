@@ -22,7 +22,7 @@ struct StatsView: View {
     enum TimeRange: String, CaseIterable {
         case today = "Today"
         case week  = "Week"
-        case month = "30 Days"
+        case month = "Month"
 
         var days: Int {
             switch self { case .today: return 1; case .week: return 7; case .month: return 30 }
@@ -302,7 +302,7 @@ struct StatsView: View {
         switch range {
         case .today: return "TODAY"
         case .week:  return "LAST 7 DAYS"
-        case .month: return "LAST 30 DAYS"
+        case .month: return "LAST MONTH"
         }
     }
 
