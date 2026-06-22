@@ -31,6 +31,7 @@ struct BlockSetupView: View {
     @State private var hasInitializedSelection = false
     @State private var manageSection: ManageSection = .apps
     @State private var appSearch = ""
+    @State private var websiteSearch = ""
     @State private var newWebsite = ""
     @State private var websiteError = ""
 
@@ -161,14 +162,6 @@ struct BlockSetupView: View {
     private var itemList: some View {
         ScrollView {
             VStack(spacing: 18) {
-                if !suggestedItems.isEmpty {
-                    suggestionSection
-                }
-                if !items.isEmpty {
-                    configSection
-                } else if !isLoadingItems {
-                    emptySelectionState
-                }
                 manageSectionCard
             }
             .padding(.vertical, 12)
@@ -239,24 +232,6 @@ struct BlockSetupView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private var configSection: some View {
-        Group {
-            if !configItems.isEmpty {
-                VStack(spacing: 0) {
-                    sectionHeader("SELECTED")
-                    groupedItemsSection(apps: configAppItems, websites: configWebsiteItems)
-                }
-            }
-        }
-    }
-
-    private var suggestionSection: some View {
-        Group {
-            sectionHeader("SUGGESTED")
-            groupedItemsSection(apps: suggestedAppItems, websites: suggestedWebsiteItems)
-        }
-    }
-
     private func sectionHeader(_ text: String) -> some View {
         HStack {
             Text(text)
@@ -272,7 +247,13 @@ struct BlockSetupView: View {
 
     private var manageSectionCard: some View {
         VStack(spacing: 0) {
-            sectionHeader("CONFIGURE")
+            sectionHeader(manageSection == .limits ? "LIMITS" : "BLOCK LIST")
+            if manageSection != .limits {
+                selectionSummary
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 2)
+            }
             manageSectionPicker
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -288,6 +269,24 @@ struct BlockSetupView: View {
                     limitsManager
                 }
             }
+        }
+    }
+
+    private var selectionSummary: some View {
+        HStack(spacing: 10) {
+            Text("\(checkedTotal) selected")
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(.primary)
+
+            Text("\(checkedApps.count) app\(checkedApps.count == 1 ? "" : "s")")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            Text("\(checkedSites.count) website\(checkedSites.count == 1 ? "" : "s")")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            Spacer()
         }
     }
 
@@ -321,27 +320,10 @@ struct BlockSetupView: View {
     }
 
     private var appsManager: some View {
-        let displayedApps = Array(filteredInstalledApps.prefix(10))
+        let displayedApps = libraryAppItems
 
         return VStack(spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("Search apps…", text: $appSearch)
-                    .textFieldStyle(.plain)
-                if !appSearch.isEmpty {
-                    Button {
-                        appSearch = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .appCard(cornerRadius: 12)
+            librarySearchField(placeholder: "Search apps…", text: $appSearch)
 
             if displayedApps.isEmpty {
                 HStack {
@@ -355,8 +337,8 @@ struct BlockSetupView: View {
                 .appCard(cornerRadius: 14)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(displayedApps.enumerated()), id: \.element.id) { index, app in
-                        appConfigRow(app)
+                    ForEach(Array(displayedApps.enumerated()), id: \.element.id) { index, item in
+                        itemRow(item)
                         if index < displayedApps.count - 1 {
                             Divider().padding(.leading, 52)
                         }
@@ -366,7 +348,7 @@ struct BlockSetupView: View {
             }
 
             HStack {
-                let count = service.config.blockedApps.count
+                let count = checkedApps.count
                 Text(count == 0 ? "No apps selected yet" : "\(count) app\(count == 1 ? "" : "s") ready to block")
                     .font(.footnote)
                     .foregroundColor(.secondary)
@@ -377,42 +359,15 @@ struct BlockSetupView: View {
         .padding(.bottom, 8)
     }
 
-    private func appConfigRow(_ app: AppInfo) -> some View {
-        HStack(spacing: 12) {
-            Toggle("", isOn: blockedAppBinding(app.name))
-                .labelsHidden()
-                .toggleStyle(.checkbox)
-
-            Image(nsImage: app.icon)
-                .resizable()
-                .frame(width: 22, height: 22)
-
-            Text(app.name)
-                .font(.body)
-                .lineLimit(1)
-
-            Spacer()
-
-            if let existingItem = items.first(where: { $0.isApp && $0.blockingName == app.name }) {
-                Text(existingItem.category.rawValue)
-                    .font(.body)
-                    .foregroundColor(existingItem.category.color)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(existingItem.category.color.opacity(0.10))
-                    .cornerRadius(5)
-                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(existingItem.category.color.opacity(0.30), lineWidth: 1.0))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
     private var websitesManager: some View {
-        VStack(spacing: 12) {
-            if service.config.blockedWebsites.isEmpty {
+        let displayedSites = libraryWebsiteItems
+
+        return VStack(spacing: 12) {
+            librarySearchField(placeholder: "Search websites…", text: $websiteSearch)
+
+            if displayedSites.isEmpty {
                 HStack {
-                    Text("No websites added yet")
+                    Text(websiteSearch.isEmpty ? "No websites added yet" : "No websites match your search")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -422,9 +377,9 @@ struct BlockSetupView: View {
                 .appCard(cornerRadius: 14)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(service.config.blockedWebsites.enumerated()), id: \.element) { index, site in
-                        websiteConfigRow(site)
-                        if index < service.config.blockedWebsites.count - 1 {
+                    ForEach(Array(displayedSites.enumerated()), id: \.element.id) { index, item in
+                        websiteLibraryRow(item)
+                        if index < displayedSites.count - 1 {
                             Divider().padding(.leading, 52)
                         }
                     }
@@ -479,39 +434,44 @@ struct BlockSetupView: View {
         .padding(.bottom, 8)
     }
 
-    private func websiteConfigRow(_ site: String) -> some View {
+    private func websiteLibraryRow(_ item: BlockItem) -> some View {
         HStack(spacing: 12) {
-            Toggle("", isOn: blockedWebsiteBinding(site))
+            Toggle("", isOn: selectionBinding(for: item))
                 .labelsHidden()
                 .toggleStyle(.checkbox)
 
             Image(systemName: "globe")
-                .foregroundColor(service.config.category(for: site).color)
+                .foregroundColor(item.category.color)
                 .frame(width: 20)
 
-            Text(site)
+            Text(item.displayName)
                 .font(.body)
+                .lineLimit(1)
 
             Spacer()
 
-            Text(service.config.category(for: site).rawValue)
+            Text(item.category.rawValue)
                 .font(.body)
-                .foregroundColor(service.config.category(for: site).color)
+                .foregroundColor(item.category.color)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(service.config.category(for: site).color.opacity(0.10))
+                .background(item.category.color.opacity(0.10))
                 .cornerRadius(5)
-                .overlay(RoundedRectangle(cornerRadius: 5).stroke(service.config.category(for: site).color.opacity(0.30), lineWidth: 1.0))
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(item.category.color.opacity(0.30), lineWidth: 1.0))
 
-            Button {
-                service.config.blockedWebsites.removeAll { $0 == site }
-                service.saveConfig()
-                loadItems()
-            } label: {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundColor(.red)
+            if service.config.blockedWebsites.contains(item.blockingName) {
+                Button {
+                    service.config.blockedWebsites.removeAll { $0 == item.blockingName }
+                    service.saveConfig()
+                    checked.remove(item.id)
+                    items.removeAll { $0.id == item.id }
+                    loadItems()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -572,38 +532,9 @@ struct BlockSetupView: View {
         .padding(.bottom, 8)
     }
 
-    private func groupedItemsSection(apps: [BlockItem], websites: [BlockItem]) -> some View {
-        VStack(spacing: 0) {
-            if !apps.isEmpty {
-                subsectionHeader("Apps")
-                ForEach(apps) { item in itemRow(item) }
-            }
-
-            if !websites.isEmpty {
-                subsectionHeader("Websites")
-                ForEach(websites) { item in itemRow(item) }
-            }
-        }
-    }
-
-    private func subsectionHeader(_ text: String) -> some View {
-        HStack {
-            Text(text)
-                .font(.body.weight(.semibold))
-                .foregroundColor(.secondary.opacity(0.9))
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 4)
-    }
-
     private func itemRow(_ item: BlockItem) -> some View {
         HStack(spacing: 12) {
-            Toggle("", isOn: Binding(
-                get: { checked.contains(item.id) },
-                set: { if $0 { checked.insert(item.id) } else { checked.remove(item.id) } }
-            ))
+            Toggle("", isOn: selectionBinding(for: item))
             .labelsHidden()
             .toggleStyle(.checkbox)
 
@@ -738,16 +669,79 @@ struct BlockSetupView: View {
 
     // MARK: - Data loading
 
-    private var configItems: [BlockItem] { items.filter(\.isFromConfig).sorted { $0.todayDuration > $1.todayDuration } }
-    private var configAppItems: [BlockItem] { configItems.filter(\.isApp) }
-    private var configWebsiteItems: [BlockItem] { configItems.filter { !$0.isApp } }
-    private var suggestedItems: [BlockItem] { items.filter { !$0.isFromConfig }.sorted { $0.todayDuration > $1.todayDuration } }
-    private var suggestedAppItems: [BlockItem] { suggestedItems.filter(\.isApp) }
-    private var suggestedWebsiteItems: [BlockItem] { suggestedItems.filter { !$0.isApp } }
-    private var filteredInstalledApps: [AppInfo] {
-        let apps = AppScanner.shared.installedApps()
-        guard !appSearch.isEmpty else { return apps }
-        return apps.filter { $0.name.localizedCaseInsensitiveContains(appSearch) }
+    private var libraryAppItems: [BlockItem] {
+        var merged: [String: BlockItem] = Dictionary(
+            uniqueKeysWithValues: items.filter(\.isApp).map { ($0.id, $0) }
+        )
+
+        for app in AppScanner.shared.installedApps() {
+            let item = BlockItem(
+                displayName: app.name,
+                blockingName: app.name,
+                isApp: true,
+                isFromConfig: false,
+                todayDuration: merged["\(app.name):app"]?.todayDuration ?? 0,
+                category: merged["\(app.name):app"]?.category ?? service.config.category(for: app.name),
+                icon: merged["\(app.name):app"]?.icon ?? app.icon
+            )
+            merged[item.id] = item
+        }
+
+        return merged.values
+            .filter { appSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(appSearch) }
+            .sorted(by: librarySort)
+    }
+
+    private var libraryWebsiteItems: [BlockItem] {
+        items
+            .filter { !$0.isApp }
+            .filter { websiteSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(websiteSearch) }
+            .sorted(by: librarySort)
+    }
+
+    private func librarySort(_ lhs: BlockItem, _ rhs: BlockItem) -> Bool {
+        let lhsSelected = checked.contains(lhs.id)
+        let rhsSelected = checked.contains(rhs.id)
+        if lhsSelected != rhsSelected { return lhsSelected && !rhsSelected }
+        if lhs.todayDuration != rhs.todayDuration { return lhs.todayDuration > rhs.todayDuration }
+        return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+    }
+
+    private func selectionBinding(for item: BlockItem) -> Binding<Bool> {
+        Binding(
+            get: { checked.contains(item.id) },
+            set: { isOn in
+                if isOn {
+                    if !items.contains(where: { $0.id == item.id }) {
+                        items.append(item)
+                    }
+                    checked.insert(item.id)
+                } else {
+                    checked.remove(item.id)
+                }
+            }
+        )
+    }
+
+    private func librarySearchField(placeholder: String, text: Binding<String>) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
+            if !text.wrappedValue.isEmpty {
+                Button {
+                    text.wrappedValue = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .appCard(cornerRadius: 12)
     }
 
     private static func initialConfigItems(from config: Config) -> [BlockItem] {
@@ -787,6 +781,7 @@ struct BlockSetupView: View {
         let selfName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Lock In"
         let selfBundleID = Bundle.main.bundleIdentifier ?? ""
         isLoadingItems = true
+        let existingItems = items
         let existingChecked = checked
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -885,49 +880,23 @@ struct BlockSetupView: View {
             }
 
             DispatchQueue.main.async {
+                let resultIDs = Set(result.map(\.id))
+                let preservedItems = existingItems.filter { existingChecked.contains($0.id) && !resultIDs.contains($0.id) }
                 self.items = result
+                for item in preservedItems where !self.items.contains(where: { $0.id == item.id }) {
+                    self.items.append(item)
+                }
                 if self.hasInitializedSelection {
-                    let newIDs = Set(result.map(\.id))
+                    let newIDs = Set(self.items.map(\.id))
                     let configIDs = Set(result.filter(\.isFromConfig).map(\.id))
                     self.checked = existingChecked.intersection(newIDs).union(configIDs)
                 } else {
-                    self.checked = Set(result.map(\.id))
+                    self.checked = Set(self.items.map(\.id))
                     self.hasInitializedSelection = true
                 }
                 self.isLoadingItems = false
             }
         }
-    }
-
-    private func blockedAppBinding(_ name: String) -> Binding<Bool> {
-        Binding(
-            get: { service.config.blockedApps.contains(name) },
-            set: { isOn in
-                if isOn {
-                    if !service.config.blockedApps.contains(name) {
-                        service.config.blockedApps.append(name)
-                    }
-                } else {
-                    service.config.blockedApps.removeAll { $0 == name }
-                }
-                service.saveConfig()
-                loadItems()
-            }
-        )
-    }
-
-    private func blockedWebsiteBinding(_ site: String) -> Binding<Bool> {
-        Binding(
-            get: { checked.contains("\(site):web") },
-            set: { isOn in
-                let id = "\(site):web"
-                if isOn {
-                    checked.insert(id)
-                } else {
-                    checked.remove(id)
-                }
-            }
-        )
     }
 
     private func addWebsite() {
