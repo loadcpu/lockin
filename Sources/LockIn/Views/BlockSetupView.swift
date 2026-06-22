@@ -499,16 +499,6 @@ struct BlockSetupView: View {
                 }
             }
             .appCard(cornerRadius: 14)
-
-            HStack {
-                let active = limitCategories.filter {
-                    (service.config.categoryLimits[$0.rawValue] ?? 0) > 0
-                }.count
-                Text(active == 0 ? "No limits set" : "\(active) limit\(active == 1 ? "" : "s") active")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 8)

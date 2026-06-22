@@ -273,20 +273,6 @@ struct ConfigView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(configureBackground)
-
-            Divider()
-
-            HStack {
-                let active = limitCategories.filter {
-                    (service.config.categoryLimits[$0.rawValue] ?? 0) > 0
-                }.count
-                Text(active == 0 ? "No limits set" : "\(active) limit\(active == 1 ? "" : "s") active")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
     }
 
