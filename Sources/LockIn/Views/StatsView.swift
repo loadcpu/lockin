@@ -117,7 +117,7 @@ struct StatsView: View {
                     Text(current.rawValue)
                         .font(.body.weight(.semibold))
                         .foregroundColor(rangeForeground(for: current))
-                        .frame(width: current == .month ? 118 : 96, height: 34)
+                        .frame(width: 104, height: 34)
                         .background(rangeBackground(for: current))
                 }
                 .buttonStyle(.plain)
