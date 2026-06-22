@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     private var statsWC: HostingWindowController?
     private var blockSetupWC: HostingWindowController?
     private var sigTermSource: DispatchSourceSignal?
+    private let updateChecker = AppUpdateChecker.shared
 
     // MARK: - Launch
 
@@ -35,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         HelperInstaller.ensureLaunchAgent()
         ActivityTracker.shared.start()
         LimitsChecker.shared.start()
+        updateChecker.checkForUpdatesIfNeeded()
         setupStatusItem()
         startMainTimer()
         showDashboard()
@@ -58,6 +60,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         let aboutItem = NSMenuItem(title: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         aboutItem.target = NSApp
         appMenu.addItem(aboutItem)
+        appMenu.addItem(item("Check for Updates…", action: #selector(checkForUpdates), key: ""))
+        appMenu.addItem(item("Download Update", action: #selector(downloadUpdate), key: ""))
         appMenu.addItem(.separator())
 
         let hideItem = NSMenuItem(title: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
@@ -254,6 +258,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         }
 
         menu.addItem(.separator())
+        menu.addItem(item("Check for Updates…", action: #selector(checkForUpdates), key: ""))
+        if updateChecker.isUpdateAvailable {
+            menu.addItem(item("Download Update", action: #selector(downloadUpdate), key: ""))
+        }
+        menu.addItem(.separator())
         menu.addItem(item("Quit", action: #selector(handleQuit), key: "q"))
     }
 
@@ -307,6 +316,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             win.isMovableByWindowBackground = true
         }
         blockSetupWC?.showWindow(nil)
+    }
+
+    @objc private func checkForUpdates() {
+        updateChecker.checkForUpdates(userInitiated: true)
+    }
+
+    @objc private func downloadUpdate() {
+        updateChecker.openDownloadPage()
     }
 
     @objc private func handleQuit() {
