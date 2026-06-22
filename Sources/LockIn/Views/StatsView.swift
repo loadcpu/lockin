@@ -45,8 +45,7 @@ struct StatsView: View {
                             .frame(height: 0)
                             .id("statsTop")
                         VStack(alignment: .leading, spacing: 20) {
-                            summaryCard
-                            focusCalendarSection
+                            overviewCard
                             if totalDuration < 1 {
                                 emptyState
                             } else {
@@ -183,14 +182,19 @@ struct StatsView: View {
 
     // MARK: - Summary card
 
-    private var summaryCard: some View {
+    private var overviewCard: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            summaryContent
+            Divider()
+            focusCalendarSection
+        }
+        .padding(16)
+        .appCard(cornerRadius: 16)
+    }
+
+    private var summaryContent: some View {
         let green = Color(red: 0.20, green: 0.78, blue: 0.35)
         return VStack(alignment: .leading, spacing: 10) {
-            Text(rangeLabel)
-                .font(.footnote.bold())
-                .foregroundColor(.secondary)
-                .tracking(0.5)
-
             HStack(alignment: .bottom, spacing: 0) {
                 if focusTotal > 0 {
                     VStack(alignment: .leading, spacing: 1) {
@@ -248,8 +252,6 @@ struct StatsView: View {
                 streakRow
             }
         }
-        .padding(16)
-        .appCard(cornerRadius: 16)
     }
 
     private var streakRow: some View {
@@ -295,17 +297,6 @@ struct StatsView: View {
         }
     }
 
-    private var rangeLabel: String {
-        if let selectedDate {
-            return dayFormatter.string(from: selectedDate).uppercased()
-        }
-        switch range {
-        case .today: return "TODAY"
-        case .week:  return "LAST 7 DAYS"
-        case .month: return "LAST MONTH"
-        }
-    }
-
     private var emptyStateRangeLabel: String {
         if let selectedDate {
             return dayFormatter.string(from: selectedDate)
@@ -324,8 +315,6 @@ struct StatsView: View {
                 resetScrollPosition()
             }
         )
-        .padding(16)
-        .appCard(cornerRadius: 16)
     }
 
     // MARK: - Category section
