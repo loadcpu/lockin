@@ -367,14 +367,9 @@ struct BlockSetupView: View {
                         addWebsiteFromSearch()
                     } label: {
                         HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Add \(normalizedWebsiteCandidate ?? websiteSearch)")
-                                    .font(.footnote.weight(.semibold))
-                                    .foregroundColor(.primary)
-                                Text("Press Return or click here to add this website")
-                                    .font(.footnote)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text("Add \(normalizedWebsiteCandidate ?? websiteSearch)")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundColor(.primary)
                             Spacer()
                             Image(systemName: "plus.circle.fill")
                                 .foregroundColor(blockSetupAccentBlue)
