@@ -411,25 +411,6 @@ struct BlockSetupView: View {
                 }
             }
 
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Instant tab blocking")
-                        .font(.footnote.weight(.medium))
-                    Text(service.primedBrowserIDs.isEmpty
-                        ? "Not set up — open browsers, then tap Setup"
-                        : "\(service.primedBrowserIDs.count) browser\(service.primedBrowserIDs.count == 1 ? "" : "s") authorised")
-                        .font(.footnote)
-                        .foregroundColor(service.primedBrowserIDs.isEmpty ? .orange : .secondary)
-                }
-                Spacer()
-                Button("Setup…") {
-                    grantBrowserPermissions()
-                }
-                .buttonStyle(FooterCapsuleButtonStyle(kind: .secondary))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .appCard(cornerRadius: 14)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 8)
