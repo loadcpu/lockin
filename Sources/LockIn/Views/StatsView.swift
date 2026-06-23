@@ -56,7 +56,6 @@ struct StatsView: View {
                         .padding(24)
                     }
                 }
-                .scrollIndicators(.never)
                 .appWindowSurface()
                 .background(ScrollViewInsetsResetter())
                 .onChange(of: scrollResetToken) { _ in

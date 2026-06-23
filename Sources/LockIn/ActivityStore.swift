@@ -107,6 +107,8 @@ final class ActivityStore: ObservableObject {
         let duration: TimeInterval
 
         var displayName: String { domain ?? appName }
+        var isWebsite: Bool { domain != nil }
+        var stableKey: String { domain ?? bundleID }
 
         var icon: NSImage? {
             guard domain == nil, !bundleID.isEmpty, bundleID != "web" else { return nil }
@@ -114,6 +116,12 @@ final class ActivityStore: ObservableObject {
             guard let url = urls.first else { return nil }
             return NSWorkspace.shared.icon(forFile: url.path)
         }
+    }
+
+    struct AppUsageGroup: Identifiable {
+        let id: String
+        let parent: AppUsage
+        let children: [AppUsage]
     }
 
     struct CategoryUsage: Identifiable {
@@ -155,6 +163,32 @@ final class ActivityStore: ObservableObject {
         return aggregate(events(for: date), limit: limit)
     }
 
+    func topAppGroups(forDays days: Int, limit: Int = 10) -> [AppUsageGroup] {
+        buildTopAppGroups(
+            from: ScreenTimeReader.shared.isAvailable
+                ? mergedUsage(
+                    screenTimeSamples: screenTimeSamples(forDays: days),
+                    trackedEvents: events(forDays: days),
+                    mediaIntervals: screenTimeMediaIntervals(forDays: days)
+                )
+                : aggregate(events(forDays: days), limit: Int.max),
+            limit: limit
+        )
+    }
+
+    func topAppGroups(for date: Date, limit: Int = 10) -> [AppUsageGroup] {
+        buildTopAppGroups(
+            from: ScreenTimeReader.shared.isAvailable
+                ? mergedUsage(
+                    screenTimeSamples: ScreenTimeReader.shared.samples(for: date),
+                    trackedEvents: events(for: date),
+                    mediaIntervals: ScreenTimeReader.shared.mediaIntervals(for: date)
+                )
+                : aggregate(events(for: date), limit: Int.max),
+            limit: limit
+        )
+    }
+
     func categoryBreakdown(forDays days: Int, categoryLookup: (String) -> AppCategory) -> [CategoryUsage] {
         if ScreenTimeReader.shared.isAvailable {
             return mergedCategoryBreakdown(forDays: days, lookup: categoryLookup)
@@ -172,14 +206,22 @@ final class ActivityStore: ObservableObject {
     // MARK: - Screen Time data paths
 
     private func mergedTopApps(forDays days: Int, limit: Int) -> [AppUsage] {
-        mergedUsage(screenTimeSamples: screenTimeSamples(forDays: days), trackedEvents: events(forDays: days))
+        mergedUsage(
+            screenTimeSamples: screenTimeSamples(forDays: days),
+            trackedEvents: events(forDays: days),
+            mediaIntervals: screenTimeMediaIntervals(forDays: days)
+        )
             .sorted { $0.duration > $1.duration }
             .prefix(limit)
             .map { $0 }
     }
 
     private func mergedTopApps(for date: Date, limit: Int) -> [AppUsage] {
-        mergedUsage(screenTimeSamples: ScreenTimeReader.shared.samples(for: date), trackedEvents: events(for: date))
+        mergedUsage(
+            screenTimeSamples: ScreenTimeReader.shared.samples(for: date),
+            trackedEvents: events(for: date),
+            mediaIntervals: ScreenTimeReader.shared.mediaIntervals(for: date)
+        )
             .sorted { $0.duration > $1.duration }
             .prefix(limit)
             .map { $0 }
@@ -194,7 +236,20 @@ final class ActivityStore: ObservableObject {
         }
     }
 
-    private func mergedUsage(screenTimeSamples: [ScreenTimeReader.Sample], trackedEvents: [ActivityEvent]) -> [AppUsage] {
+    private func screenTimeMediaIntervals(forDays days: Int) -> [ScreenTimeReader.Interval] {
+        let calendar = Calendar.current
+        let today = Date()
+        return (0..<days).flatMap { offset -> [ScreenTimeReader.Interval] in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { return [] }
+            return ScreenTimeReader.shared.mediaIntervals(for: date)
+        }
+    }
+
+    private func mergedUsage(
+        screenTimeSamples: [ScreenTimeReader.Sample],
+        trackedEvents: [ActivityEvent],
+        mediaIntervals: [ScreenTimeReader.Interval]
+    ) -> [AppUsage] {
         var byKey: [String: (appName: String, bundleID: String, domain: String?, duration: TimeInterval)] = [:]
 
         let trackedDomainUsage = aggregate(trackedEvents.filter { $0.domain != nil }, limit: Int.max)
@@ -226,13 +281,27 @@ final class ActivityStore: ObservableObject {
             }
         }
 
+        let trackedDomainEvents = trackedEvents
+            .filter { $0.domain != nil && Self.browserBundleIDs.contains($0.bundleID) }
+            .sorted { $0.timestamp < $1.timestamp }
+        let mediaAttribution = attributeMediaPlayback(intervals: mediaIntervals, to: trackedDomainEvents)
+        for (key, extraDuration) in mediaAttribution where extraDuration > 0 {
+            if byKey[key] != nil {
+                byKey[key]!.duration += extraDuration
+            }
+        }
+
         return byKey
             .map { _, v in AppUsage(appName: v.appName, bundleID: v.bundleID, domain: v.domain, duration: v.duration) }
     }
 
     private func mergedCategoryBreakdown(forDays days: Int, lookup: (String) -> AppCategory) -> [CategoryUsage] {
         buildCategoryBreakdown(
-            mergedUsage(screenTimeSamples: screenTimeSamples(forDays: days), trackedEvents: events(forDays: days))
+            mergedUsage(
+                screenTimeSamples: screenTimeSamples(forDays: days),
+                trackedEvents: events(forDays: days),
+                mediaIntervals: screenTimeMediaIntervals(forDays: days)
+            )
                 .map { ActivityEvent(timestamp: .now, duration: $0.duration, appName: $0.appName, bundleID: $0.bundleID, domain: $0.domain) },
             lookup: lookup
         )
@@ -240,7 +309,11 @@ final class ActivityStore: ObservableObject {
 
     private func mergedCategoryBreakdown(for date: Date, lookup: (String) -> AppCategory) -> [CategoryUsage] {
         buildCategoryBreakdown(
-            mergedUsage(screenTimeSamples: ScreenTimeReader.shared.samples(for: date), trackedEvents: events(for: date))
+            mergedUsage(
+                screenTimeSamples: ScreenTimeReader.shared.samples(for: date),
+                trackedEvents: events(for: date),
+                mediaIntervals: ScreenTimeReader.shared.mediaIntervals(for: date)
+            )
                 .map { ActivityEvent(timestamp: .now, duration: $0.duration, appName: $0.appName, bundleID: $0.bundleID, domain: $0.domain) },
             lookup: lookup
         )
@@ -356,5 +429,85 @@ final class ActivityStore: ObservableObject {
                 if aNoise != bNoise { return bNoise }
                 return $0.duration > $1.duration
             }
+    }
+
+    private func attributeMediaPlayback(
+        intervals: [ScreenTimeReader.Interval],
+        to trackedDomainEvents: [ActivityEvent]
+    ) -> [String: TimeInterval] {
+        var attributed: [String: TimeInterval] = [:]
+        let attributionWindow: TimeInterval = 15 * 60
+
+        for interval in intervals {
+            guard Self.browserBundleIDs.contains(interval.bundleID) else { continue }
+
+            let candidates = trackedDomainEvents.filter { event in
+                guard event.bundleID == interval.bundleID else { return false }
+                let eventStart = event.timestamp
+                let eventEnd = event.timestamp.addingTimeInterval(event.duration)
+                if eventEnd >= interval.start && eventStart <= interval.end {
+                    return true
+                }
+                return eventEnd <= interval.start && interval.start.timeIntervalSince(eventEnd) <= attributionWindow
+            }
+
+            guard let bestMatch = candidates.max(by: { lhs, rhs in
+                let lhsEnd = lhs.timestamp.addingTimeInterval(lhs.duration)
+                let rhsEnd = rhs.timestamp.addingTimeInterval(rhs.duration)
+                return lhsEnd < rhsEnd
+            }), let domain = bestMatch.domain else { continue }
+
+            let overlap = overlapDuration(of: interval, with: bestMatch)
+            let extraDuration = max(0, interval.duration - overlap)
+            guard extraDuration > 0 else { continue }
+            attributed[domain, default: 0] += extraDuration
+        }
+
+        return attributed
+    }
+
+    private func overlapDuration(of interval: ScreenTimeReader.Interval, with event: ActivityEvent) -> TimeInterval {
+        let eventStart = event.timestamp
+        let eventEnd = event.timestamp.addingTimeInterval(event.duration)
+        let overlapStart = max(interval.start.timeIntervalSinceReferenceDate, eventStart.timeIntervalSinceReferenceDate)
+        let overlapEnd = min(interval.end.timeIntervalSinceReferenceDate, eventEnd.timeIntervalSinceReferenceDate)
+        return max(0, overlapEnd - overlapStart)
+    }
+
+    private func buildTopAppGroups(from usages: [AppUsage], limit: Int) -> [AppUsageGroup] {
+        var appEntriesByBundleID: [String: AppUsage] = [:]
+        var domainsByBundleID: [String: [AppUsage]] = [:]
+        var standaloneUsages: [AppUsage] = []
+
+        for usage in usages {
+            if usage.isWebsite {
+                domainsByBundleID[usage.bundleID, default: []].append(usage)
+            } else if Self.browserBundleIDs.contains(usage.bundleID) {
+                appEntriesByBundleID[usage.bundleID] = usage
+            } else {
+                standaloneUsages.append(usage)
+            }
+        }
+
+        var groups: [AppUsageGroup] = standaloneUsages.map {
+            AppUsageGroup(id: $0.stableKey, parent: $0, children: [])
+        }
+
+        let browserBundleIDs = Set(appEntriesByBundleID.keys).union(domainsByBundleID.keys)
+        for bundleID in browserBundleIDs {
+            let children = (domainsByBundleID[bundleID] ?? []).sorted { $0.duration > $1.duration }
+            let parent = appEntriesByBundleID[bundleID] ?? AppUsage(
+                appName: resolveAppName(bundleID: bundleID) ?? children.first?.appName ?? bundleID,
+                bundleID: bundleID,
+                domain: nil,
+                duration: children.reduce(0) { $0 + $1.duration }
+            )
+            groups.append(AppUsageGroup(id: parent.stableKey, parent: parent, children: children))
+        }
+
+        return groups
+            .sorted { $0.parent.duration > $1.parent.duration }
+            .prefix(limit)
+            .map { $0 }
     }
 }
