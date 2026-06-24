@@ -691,8 +691,30 @@ struct BlockSetupView: View {
                 } else {
                     checked.remove(item.id)
                 }
+                syncConfigSelection(for: item, isSelected: isOn)
             }
         )
+    }
+
+    private func syncConfigSelection(for item: BlockItem, isSelected: Bool) {
+        if item.isApp {
+            if isSelected {
+                if !service.config.blockedApps.contains(where: { $0.caseInsensitiveCompare(item.blockingName) == .orderedSame }) {
+                    service.config.blockedApps.append(item.blockingName)
+                }
+            } else {
+                service.config.blockedApps.removeAll { $0.caseInsensitiveCompare(item.blockingName) == .orderedSame }
+            }
+        } else {
+            if isSelected {
+                if !service.config.blockedWebsites.contains(item.blockingName) {
+                    service.config.blockedWebsites.insert(item.blockingName, at: 0)
+                }
+            } else {
+                service.config.blockedWebsites.removeAll { $0 == item.blockingName }
+            }
+        }
+        service.saveConfig()
     }
 
     private func librarySearchField(
@@ -870,7 +892,7 @@ struct BlockSetupView: View {
                     let configIDs = Set(result.filter(\.isFromConfig).map(\.id))
                     self.checked = existingChecked.intersection(newIDs).union(configIDs)
                 } else {
-                    self.checked = Set(self.items.map(\.id))
+                    self.checked = Set(result.filter(\.isFromConfig).map(\.id))
                     self.hasInitializedSelection = true
                 }
                 self.isLoadingItems = false
