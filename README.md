@@ -13,7 +13,7 @@ Download `LockIn.zip` from the latest release, unzip it, and move `Lock In.app` 
 Or install from Terminal:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/loadcpu/screen-blocker/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/loadcpu/lockin/main/install.sh | bash
 ```
 
 Requires macOS 13 or later.

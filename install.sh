@@ -39,7 +39,7 @@ if [ -f Package.swift ]; then
 fi
 
 # ── End-user mode: download latest release zip ──────────────────────────────
-REPO="${LOCKIN_REPO:-loadcpu/screen-blocker}"
+REPO="${LOCKIN_REPO:-loadcpu/lockin}"
 ZIP_URL="${LOCKIN_ZIP_URL:-https://github.com/$REPO/releases/latest/download/LockIn.zip}"
 
 echo ""

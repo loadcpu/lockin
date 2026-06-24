@@ -2,7 +2,7 @@
 set -e
 
 APP="Lock In"
-REPO="${LOCKIN_REPO:-loadcpu/screen-blocker}"
+REPO="${LOCKIN_REPO:-loadcpu/lockin}"
 DIST_DIR=".build/dist"
 STABLE_ZIP="$DIST_DIR/LockIn.zip"
 BOLD='\033[1m'; GREEN='\033[0;32m'; RESET='\033[0m'

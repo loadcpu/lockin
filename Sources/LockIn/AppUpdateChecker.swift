@@ -10,8 +10,8 @@ final class AppUpdateChecker: ObservableObject {
     @Published private(set) var isChecking = false
 
     private let session: URLSession
-    private let latestReleaseAPI = URL(string: "https://api.github.com/repos/loadcpu/screen-blocker/releases/latest")!
-    private let latestReleasePage = URL(string: "https://github.com/loadcpu/screen-blocker/releases/latest")!
+    private let latestReleaseAPI = URL(string: "https://api.github.com/repos/loadcpu/lockin/releases/latest")!
+    private let latestReleasePage = URL(string: "https://github.com/loadcpu/lockin/releases/latest")!
     private let lastCheckKey = "appUpdateLastCheck"
     private let checkInterval: TimeInterval = 60 * 60 * 12
 
