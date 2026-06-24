@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
 
-STAGING=".build/Lock In.app"
+APP_NAME="Lock In"
+EXECUTABLE_NAME="LockIn"
+APP_BUNDLE_ID="com.local.lockin"
+STAGING=".build/$APP_NAME.app"
 APP_VERSION="${LOCKIN_VERSION:-1.0}"
 APP_BUILD="${LOCKIN_BUILD:-1}"
 WORKDIR="$(pwd)"
@@ -35,22 +38,23 @@ rm -rf "$STAGING"
 mkdir -p "$STAGING/Contents/MacOS"
 mkdir -p "$STAGING/Contents/Resources"
 
-cp .build/release/LockIn "$STAGING/Contents/MacOS/LockIn"
+cp ".build/release/$EXECUTABLE_NAME" "$STAGING/Contents/MacOS/$EXECUTABLE_NAME"
 cp AppIcon.icns "$STAGING/Contents/Resources/AppIcon.icns"
 
-cat > "$STAGING/Contents/Info.plist" <<PLIST
+INFO_PLIST="$STAGING/Contents/Info.plist"
+cat > "$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>LockIn</string>
+    <string>${EXECUTABLE_NAME}</string>
     <key>CFBundleIdentifier</key>
-    <string>com.local.lockin</string>
+    <string>${APP_BUNDLE_ID}</string>
     <key>CFBundleName</key>
-    <string>Lock In</string>
+    <string>${APP_NAME}</string>
     <key>CFBundleDisplayName</key>
-    <string>Lock In</string>
+    <string>${APP_NAME}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

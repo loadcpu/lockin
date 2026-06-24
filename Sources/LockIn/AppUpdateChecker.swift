@@ -79,7 +79,7 @@ final class AppUpdateChecker: ObservableObject {
             do {
                 let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
                 let version = Self.normalizeVersion(release.tagName)
-                let zipURL = release.assets.first(where: { $0.name == "LockIn.zip" })?.browserDownloadURL
+                let zipURL = release.assets.first(where: Self.isPreferredZipAsset)?.browserDownloadURL
 
                 DispatchQueue.main.async {
                     self.latestVersion = version
@@ -160,6 +160,11 @@ final class AppUpdateChecker: ObservableObject {
         }
 
         return .orderedSame
+    }
+
+    private static func isPreferredZipAsset(_ asset: GitHubAsset) -> Bool {
+        asset.name == "LockIn.zip" ||
+        (asset.name.hasPrefix("LockIn-macOS-") && asset.name.hasSuffix(".zip"))
     }
 }
 

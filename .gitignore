@@ -1,4 +1,5 @@
 .build/
+.build/dist/
 *.xcworkspace
 xcuserdata/
 DerivedData/
@@ -7,6 +8,8 @@ AppIcon.iconset/
 *.o
 *.d
 .DS_Store
-ScreenBlocker.app/
-ScreenBlocker.dmg
+Lock In.app/
+LockIn.app/
+LockIn.zip
+LockIn-macOS-*.zip
 memory/

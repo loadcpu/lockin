@@ -56,7 +56,7 @@ trap "rm -rf $TMP" EXIT
 ZIP_PATH="$TMP/LockIn.zip"
 
 printf "  Downloading app... "
-if ! curl -fsSL "$ZIP_URL" -o "$ZIP_PATH"; then
+if ! curl --proto '=https' --tlsv1.2 -fLsS "$ZIP_URL" -o "$ZIP_PATH"; then
   echo ""
   echo "${RED}Error: failed to download release zip.${RESET}"
   echo "  ${DIM}URL: $ZIP_URL${RESET}"
@@ -67,7 +67,7 @@ echo "done"
 
 printf "  Installing to /Applications... "
 [ -d "/Applications/$APP.app" ] && rm -rf "/Applications/$APP.app"
-if ! unzip -q "$ZIP_PATH" -d /Applications/; then
+if ! ditto -x -k "$ZIP_PATH" /Applications/; then
   echo ""
   echo "${RED}Error: release zip did not extract cleanly.${RESET}"
   exit 1
