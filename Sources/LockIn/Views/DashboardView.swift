@@ -10,7 +10,6 @@ private let dashboardAccentBlue = Color(
 struct DashboardView: View {
     @ObservedObject private var service = BlockerService.shared
     @ObservedObject private var store = ActivityStore.shared
-    @ObservedObject private var updateChecker = AppUpdateChecker.shared
     let onStartBlocking: () -> Void
     let onViewStats: () -> Void
 
@@ -18,10 +17,6 @@ struct DashboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             heroSection
-            if updateChecker.isUpdateAvailable {
-                Spacer().frame(height: 14)
-                updateBanner
-            }
             Spacer().frame(height: 20)
             statusSection
             Spacer().frame(height: 16)
@@ -35,7 +30,6 @@ struct DashboardView: View {
         )
         .onAppear {
             refreshStats()
-            updateChecker.checkForUpdatesIfNeeded()
         }
         .onChange(of: store.todayTotal) { _ in refreshStats() }
     }
@@ -65,46 +59,6 @@ struct DashboardView: View {
                 readyStatus
             }
         }
-        .padding(.horizontal, 20)
-    }
-
-    private var updateBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .foregroundColor(dashboardAccentBlue)
-                    .font(.title3)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Update available")
-                        .font(.subheadline.weight(.semibold))
-                    Text("Version \(updateChecker.latestVersion ?? "") is ready to download from GitHub.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                Spacer(minLength: 0)
-            }
-
-            HStack(spacing: 10) {
-                Button("Download Update") {
-                    updateChecker.openDownloadPage()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(dashboardAccentBlue)
-
-                Button("Check Again") {
-                    updateChecker.checkForUpdates(userInitiated: true)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(dashboardAccentBlue.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(dashboardAccentBlue.opacity(0.18), lineWidth: 1)
-        )
-        .cornerRadius(12)
         .padding(.horizontal, 20)
     }
 
@@ -154,11 +108,6 @@ struct DashboardView: View {
                     .foregroundColor(.secondary)
                     .tracking(0.6)
                 Spacer()
-                if updateChecker.isChecking {
-                    Text("Checking updates…")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
                 Button("Statistics") { onViewStats() }
                     .buttonStyle(.plain)
                     .font(.footnote)

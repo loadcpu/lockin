@@ -8,6 +8,7 @@ final class AppUpdateChecker: ObservableObject {
     @Published private(set) var latestVersion: String?
     @Published private(set) var downloadURL: URL?
     @Published private(set) var isChecking = false
+    private var lastPresentedUpdateVersion: String?
 
     private let session: URLSession
     private let latestReleaseAPI = URL(string: "https://api.github.com/repos/loadcpu/lockin/releases/latest")!
@@ -87,19 +88,12 @@ final class AppUpdateChecker: ObservableObject {
                     self.isChecking = false
                     UserDefaults.standard.set(Date(), forKey: self.lastCheckKey)
 
-                    guard userInitiated else { return }
-
                     if self.isUpdateAvailable {
-                        let alert = NSAlert()
-                        alert.messageText = "Update Available"
-                        alert.informativeText = "Lock In \(version) is available. You’re currently on \(self.currentVersion)."
-                        alert.addButton(withTitle: "Download Update")
-                        alert.addButton(withTitle: "Later")
-                        self.prepareAlertForForeground(alert)
-                        if alert.runModal() == .alertFirstButtonReturn {
-                            self.openDownloadPage()
+                        if userInitiated || self.lastPresentedUpdateVersion != version {
+                            self.presentUpdateAvailableAlert(version: version)
+                            self.lastPresentedUpdateVersion = version
                         }
-                    } else {
+                    } else if userInitiated {
                         self.presentAlert(
                             title: "You’re Up to Date",
                             message: "Lock In \(self.currentVersion) is the latest available version."
@@ -122,6 +116,18 @@ final class AppUpdateChecker: ObservableObject {
 
     func openDownloadPage() {
         NSWorkspace.shared.open(downloadURL ?? latestReleasePage)
+    }
+
+    private func presentUpdateAvailableAlert(version: String) {
+        let alert = NSAlert()
+        alert.messageText = "Update Available"
+        alert.informativeText = "Lock In \(version) is available. You’re currently on \(currentVersion)."
+        alert.addButton(withTitle: "Download Update")
+        alert.addButton(withTitle: "Later")
+        prepareAlertForForeground(alert)
+        if alert.runModal() == .alertFirstButtonReturn {
+            openDownloadPage()
+        }
     }
 
     private func presentAlert(title: String, message: String) {
