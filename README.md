@@ -1,8 +1,8 @@
 # Lock In
 
-Lock In is a strict macOS focus app that helps you protect deep work by blocking distracting apps and websites during timed sessions.
+Lock In is the David Goggins of focus apps. Built for deep work by blocking distracting apps and websites during timed sessions.
 
-Free. Local-first. No account. No subscription. No telemetry.
+Free. Local. No account. No subscription. No telemetry.
 
 ## What It Does
 
@@ -12,7 +12,7 @@ Free. Local-first. No account. No subscription. No telemetry.
 - Stores your data locally on your Mac
 - Ships as a direct-download native macOS app
 
-Lock In is designed for people who want a hard stop, not a gentle reminder.
+Lock In is designed for people who want a hard stop and don't quit.
 
 ## Install
 
