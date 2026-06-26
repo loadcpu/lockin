@@ -23,7 +23,7 @@ final class BlockerService: ObservableObject {
     private var blockedAppNames: Set<String> = []
     private var limitBlockedApps: Set<String> = []
     private var limitBlockedWebsites: Set<String> = []
-    private let websiteBlockQueue = DispatchQueue(label: "com.local.lockin.website-blocks", qos: .utility)
+    private let websiteBlockQueue = DispatchQueue(label: "com.loadcpu.lockin.website-blocks", qos: .utility)
     private var browserWatcherListenerID: UUID?
     private var automationPermissionAlertsInFlight: Set<String> = []
 

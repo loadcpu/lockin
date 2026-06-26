@@ -41,7 +41,11 @@ func toPNG(_ image: NSImage) -> Data? {
     return rep.representation(using: .png, properties: [:])
 }
 
-let dir = "AppIcon.iconset"
+let fileManager = FileManager.default
+let buildDir = ".build"
+let dir = "\(buildDir)/AppIcon.iconset"
+let iconPath = "\(buildDir)/AppIcon.icns"
+try? fileManager.createDirectory(atPath: buildDir, withIntermediateDirectories: true)
 try? FileManager.default.removeItem(atPath: dir)
 try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
 
@@ -62,8 +66,8 @@ for (name, size) in specs {
 
 let task = Process()
 task.launchPath = "/usr/bin/iconutil"
-task.arguments = ["-c", "icns", dir, "-o", "AppIcon.icns"]
+task.arguments = ["-c", "icns", dir, "-o", iconPath]
 task.launch()
 task.waitUntilExit()
 guard task.terminationStatus == 0 else { print("iconutil failed"); exit(1) }
-print("AppIcon.icns ready")
+print("\(iconPath) ready")

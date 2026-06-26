@@ -1,15 +1,25 @@
 .build/
 .build/dist/
+.build/dmg-background.png
+.build/dmg-layout-check/
+.build/dmg-mount/
+.build/dmg-preview/
 *.xcworkspace
 xcuserdata/
 DerivedData/
 .swiftpm/
 AppIcon.iconset/
+AppIcon.icns
 *.o
 *.d
 .DS_Store
+*.cer
+*.p12
+*.mobileprovision
 Lock In.app/
 LockIn.app/
 LockIn.zip
+LockIn.dmg
+LockIn-macOS-*.dmg
 LockIn-macOS-*.zip
 memory/

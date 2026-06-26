@@ -6,7 +6,6 @@ enum HelperInstaller {
     private static let sudoersPath  = "/etc/sudoers.d/lockin"
     private static let versionTag   = "# sb-version v8"
     private static let defaultsKey  = "helperInstalled_v8"
-    private static let agentLabel   = "com.local.lockin"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
     @discardableResult
@@ -26,6 +25,7 @@ enum HelperInstaller {
         guard Bundle.main.bundlePath == "/Applications/Lock In.app" else { return }
 
         let home     = FileManager.default.homeDirectoryForCurrentUser
+        let agentLabel = Bundle.main.bundleIdentifier ?? "com.loadcpu.lockin"
         let agentDir = home.appendingPathComponent("Library/LaunchAgents")
         let plistURL = agentDir.appendingPathComponent("\(agentLabel).plist")
         let logDir   = home.appendingPathComponent(".lockin")
