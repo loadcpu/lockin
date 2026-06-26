@@ -1,6 +1,6 @@
 # Lock In
 
-Lock In is the David Goggins of focus apps. Built for deep work by blocking distracting apps and websites during timed sessions.
+The David Goggins of focus apps. Built for deep work by blocking distracting apps and websites during timed sessions.
 
 Free. Local. No account. No subscription. No telemetry.
 
