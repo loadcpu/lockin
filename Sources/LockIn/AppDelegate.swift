@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         setupMainMenu()
         installSigTermHandler()
         BlockerService.shared.loadState()
-        HelperInstaller.ensureLaunchAgent()
+        HelperInstaller.syncLaunchAgent(shouldExist: BlockerService.shared.isBlocking)
         ActivityTracker.shared.start()
         LimitsChecker.shared.start()
         updateChecker.checkForUpdatesIfNeeded()

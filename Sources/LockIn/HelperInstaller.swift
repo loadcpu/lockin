@@ -21,57 +21,37 @@ enum HelperInstaller {
         return runInstaller()
     }
 
-    static func ensureLaunchAgent() {
+    static func syncLaunchAgent(shouldExist: Bool) {
         guard Bundle.main.bundlePath == "/Applications/Lock In.app" else { return }
 
-        let home     = FileManager.default.homeDirectoryForCurrentUser
+        let home = FileManager.default.homeDirectoryForCurrentUser
         let agentLabel = Bundle.main.bundleIdentifier ?? "com.loadcpu.lockin"
-        let agentDir = home.appendingPathComponent("Library/LaunchAgents")
-        let plistURL = agentDir.appendingPathComponent("\(agentLabel).plist")
-        let logDir   = home.appendingPathComponent(".lockin")
+        let plistURL = home
+            .appendingPathComponent("Library/LaunchAgents")
+            .appendingPathComponent("\(agentLabel).plist")
 
-        if let existing = try? String(contentsOf: plistURL, encoding: .utf8),
-           existing.contains(agentVersion) { return }
+        let removeLaunchAgent = {
+            exec("/bin/launchctl", ["unload", plistURL.path])
+            try? FileManager.default.removeItem(at: plistURL)
+        }
 
-        let execPath = Bundle.main.executablePath
-            ?? "/Applications/Lock In.app/Contents/MacOS/LockIn"
-
-        let plist = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        \(agentVersion)
-        <plist version="1.0">
-        <dict>
-            <key>Label</key>
-            <string>\(agentLabel)</string>
-            <key>ProgramArguments</key>
-            <array>
-                <string>\(execPath)</string>
-            </array>
-            <key>RunAtLoad</key>
-            <true/>
-            <key>KeepAlive</key>
-            <dict>
-                <key>PathState</key>
-                <dict>
-                    <key>\(home.path)/.lockin/session.json</key>
-                    <true/>
-                </dict>
-            </dict>
-            <key>StandardOutPath</key>
-            <string>\(logDir.path)/app.log</string>
-            <key>StandardErrorPath</key>
-            <string>\(logDir.path)/error.log</string>
-        </dict>
-        </plist>
-        """
+        if !shouldExist {
+            DispatchQueue.global(qos: .utility).async {
+                removeLaunchAgent()
+            }
+            return
+        }
 
         DispatchQueue.global(qos: .utility).async {
-            try? FileManager.default.createDirectory(at: agentDir, withIntermediateDirectories: true)
-            try? FileManager.default.createDirectory(at: logDir,   withIntermediateDirectories: true)
-            exec("/bin/launchctl", ["unload", plistURL.path])
-            guard (try? plist.write(to: plistURL, atomically: true, encoding: .utf8)) != nil else { return }
-            exec("/bin/launchctl", ["load", "-w", plistURL.path])
+            // A LaunchAgent that points at the full app binary can still be auto-discovered
+            // by per-user launchd as soon as the plist lands in ~/Library/LaunchAgents.
+            // That creates a second GUI-app launch attempt during an active session, which
+            // immediately exits via the single-instance guard but still flashes in the Dock.
+            // Until Lock In has a dedicated background helper, keep the recovery agent absent.
+            if let existing = try? String(contentsOf: plistURL, encoding: .utf8),
+               existing.contains(agentVersion) {
+                removeLaunchAgent()
+            }
         }
     }
 

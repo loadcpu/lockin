@@ -77,6 +77,7 @@ final class BlockerService: ObservableObject {
         // The system daemon holds it and fires it even after this process exits,
         // avoiding the BlockSession.clear() → launchd SIGTERM → app-exit race.
         scheduleSessionEndNotification(minutes: minutes)
+        HelperInstaller.syncLaunchAgent(shouldExist: true)
     }
 
     func updateLimitBlocks(apps: [String], websites: [String]) {
@@ -110,6 +111,7 @@ final class BlockerService: ObservableObject {
         remainingSeconds = 0
         session = nil
         BlockSession.clear()
+        HelperInstaller.syncLaunchAgent(shouldExist: false)
         refreshEffectiveBlocks(reloadBrowserTabs: false)
     }
 
