@@ -22,6 +22,7 @@ BUNDLE_ID="${LOCKIN_BUNDLE_ID:-com.loadcpu.lockin}"
 SIGNING_IDENTITY="${LOCKIN_SIGN_IDENTITY:-}"
 NOTARY_PROFILE="${LOCKIN_NOTARY_PROFILE:-}"
 INCLUDE_ZIP="${LOCKIN_INCLUDE_ZIP:-0}"
+INCLUDE_VERSIONED_ALIASES="${LOCKIN_INCLUDE_VERSIONED_ALIASES:-0}"
 PUBLISH_RELEASE="${LOCKIN_PUBLISH_RELEASE:-1}"
 WORKDIR="$(pwd)"
 MODULE_CACHE_ROOT="$WORKDIR/.build/module-cache"
@@ -203,14 +204,21 @@ if [ -n "$NOTARY_PROFILE" ]; then
     ./verify_release.sh --require-staple "$APP_PATH" "$STABLE_DMG"
 fi
 
-cp "$STABLE_DMG" "$VERSIONED_DMG"
-echo "  $(basename "$VERSIONED_DMG") ready"
-
-RELEASE_ASSETS=("$STABLE_DMG" "$VERSIONED_DMG")
+RELEASE_ASSETS=("$STABLE_DMG")
 if [ "$INCLUDE_ZIP" = "1" ]; then
-    cp "$STABLE_ZIP" "$VERSIONED_ZIP"
-    RELEASE_ASSETS+=("$STABLE_ZIP" "$VERSIONED_ZIP")
-    echo "  $(basename "$VERSIONED_ZIP") ready"
+    RELEASE_ASSETS+=("$STABLE_ZIP")
+fi
+
+if [ "$INCLUDE_VERSIONED_ALIASES" = "1" ]; then
+    cp "$STABLE_DMG" "$VERSIONED_DMG"
+    RELEASE_ASSETS+=("$VERSIONED_DMG")
+    echo "  $(basename "$VERSIONED_DMG") ready"
+
+    if [ "$INCLUDE_ZIP" = "1" ]; then
+        cp "$STABLE_ZIP" "$VERSIONED_ZIP"
+        RELEASE_ASSETS+=("$VERSIONED_ZIP")
+        echo "  $(basename "$VERSIONED_ZIP") ready"
+    fi
 fi
 
 if [ "$PUBLISH_RELEASE" != "1" ]; then

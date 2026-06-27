@@ -52,6 +52,20 @@ Create and notarize a DMG-first release:
 
 This produces `LockIn.dmg` as the primary user install artifact.
 
+If you also want an app zip, set:
+
+```sh
+export LOCKIN_INCLUDE_ZIP=1
+```
+
+Versioned alias files such as `LockIn-macOS-v1.dmg` are off by default to keep the
+release page clean. Re-enable them only if you explicitly want duplicate alias
+downloads:
+
+```sh
+export LOCKIN_INCLUDE_VERSIONED_ALIASES=1
+```
+
 ## Final Checks
 
 Re-run verification against the built app and DMG:
