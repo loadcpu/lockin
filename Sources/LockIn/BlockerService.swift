@@ -368,9 +368,9 @@ final class BlockerService: ObservableObject {
 
     // MARK: - Browser enforcement
 
-    private enum BrowserTabQueryResult {
-        case domain(String)
-        case noTab
+    private enum BrowserWindowQueryResult {
+        case windows([(index: Int, domain: String)])
+        case noWindows
         case failed
     }
 
@@ -378,14 +378,22 @@ final class BlockerService: ObservableObject {
         for browser in knownBrowsers {
             guard NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).first != nil else { continue }
 
-            switch currentDomain(in: browser) {
-            case .domain(let domain):
-                guard matchesBlockedWebsite(domain) else { continue }
-                if !interruptBlockedCurrentTab(in: browser, domain: domain), isBlocking {
+            switch currentDomainsByWindow(in: browser) {
+            case .windows(let windows):
+                let blockedWindows = windows.filter { matchesBlockedWebsite($0.domain) }
+                guard !blockedWindows.isEmpty else { continue }
+                var failedToInterrupt = false
+                for window in blockedWindows {
+                    if !interruptBlockedTab(in: browser, windowIndex: window.index, domain: window.domain) {
+                        failedToInterrupt = true
+                        break
+                    }
+                }
+                if failedToInterrupt, isBlocking {
                     _ = forceQuitBrowsers(bundleIDs: [browser.bundleID])
                     notifyBrowserForceQuit(browser.name)
                 }
-            case .noTab:
+            case .noWindows:
                 continue
             case .failed:
                 if isBlocking {
@@ -398,15 +406,21 @@ final class BlockerService: ObservableObject {
         BrowserWatcher.shared.refreshNow()
     }
 
-    private func currentDomain(in browser: Browser) -> BrowserTabQueryResult {
+    private func currentDomainsByWindow(in browser: Browser) -> BrowserWindowQueryResult {
         let script: String
         if browser.isSafari {
             script = """
             if application "\(browser.name)" is running then
                 tell application "\(browser.name)"
-                    if (count of windows) > 0 then
-                        return URL of current tab of front window
-                    end if
+                    set output to {}
+                    repeat with i from 1 to count of windows
+                        set windowURL to URL of current tab of window i
+                        if windowURL is not missing value then set end of output to (i as string) & "|" & windowURL
+                    end repeat
+                    set AppleScript's text item delimiters to linefeed
+                    set joinedOutput to output as string
+                    set AppleScript's text item delimiters to ""
+                    return joinedOutput
                 end tell
             end if
             """
@@ -414,9 +428,15 @@ final class BlockerService: ObservableObject {
             script = """
             if application "\(browser.name)" is running then
                 tell application "\(browser.name)"
-                    if (count of windows) > 0 then
-                        return URL of active tab of front window
-                    end if
+                    set output to {}
+                    repeat with i from 1 to count of windows
+                        set windowURL to URL of active tab of window i
+                        if windowURL is not missing value then set end of output to (i as string) & "|" & windowURL
+                    end repeat
+                    set AppleScript's text item delimiters to linefeed
+                    set joinedOutput to output as string
+                    set AppleScript's text item delimiters to ""
+                    return joinedOutput
                 end tell
             end if
             """
@@ -425,17 +445,29 @@ final class BlockerService: ObservableObject {
         var err: NSDictionary?
         let result = NSAppleScript(source: script)?.executeAndReturnError(&err)
         if let err {
-            NSLog("LockIn: %@ front-tab query error: %@", browser.name, err)
+            NSLog("LockIn: %@ window-tab query error: %@", browser.name, err)
             return .failed
         }
 
-        guard let urlString = result?.stringValue,
-              let host = URL(string: urlString)?.host,
-              let domain = DomainMatcher.normalizeHost(host) else {
-            return .noTab
+        guard let output = result?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !output.isEmpty else {
+            return .noWindows
         }
 
-        return .domain(domain)
+        let windows = output
+            .components(separatedBy: .newlines)
+            .compactMap { entry -> (index: Int, domain: String)? in
+                let parts = entry.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+                guard parts.count == 2,
+                      let index = Int(parts[0]),
+                      let host = URL(string: String(parts[1]))?.host,
+                      let domain = DomainMatcher.normalizeHost(host) else {
+                    return nil
+                }
+                return (index, domain)
+            }
+
+        return windows.isEmpty ? .noWindows : .windows(windows)
     }
 
     private func notifyBrowserForceQuit(_ browserName: String) {
@@ -453,14 +485,20 @@ final class BlockerService: ObservableObject {
 
     @discardableResult
     private func interruptBlockedCurrentTab(in browser: Browser, domain: String) -> Bool {
+        interruptBlockedTab(in: browser, windowIndex: nil, domain: domain)
+    }
+
+    @discardableResult
+    private func interruptBlockedTab(in browser: Browser, windowIndex: Int?, domain: String) -> Bool {
         let replacementURL = blockPageURL(for: domain)
         let script: String
+        let windowReference = windowIndex.map { "window \($0)" } ?? "front window"
         if browser.isSafari {
             script = """
             if application "\(browser.name)" is running then
                 tell application "\(browser.name)"
                     if (count of windows) > 0 then
-                        set URL of current tab of front window to "\(replacementURL)"
+                        set URL of current tab of \(windowReference) to "\(replacementURL)"
                     end if
                 end tell
             end if
@@ -470,7 +508,7 @@ final class BlockerService: ObservableObject {
             if application "\(browser.name)" is running then
                 tell application "\(browser.name)"
                     if (count of windows) > 0 then
-                        set URL of active tab of front window to "\(replacementURL)"
+                        set URL of active tab of \(windowReference) to "\(replacementURL)"
                     end if
                 end tell
             end if
