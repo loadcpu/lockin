@@ -4,13 +4,31 @@ import AppKit
 
 _ = NSApplication.shared // init AppKit rendering
 
-func makeIcon(px: Int) -> NSImage {
-    let s = CGFloat(px)
-    let img = NSImage(size: NSSize(width: s, height: s))
-    img.lockFocus()
-    defer { img.unlockFocus() }
+func makeIconPNG(px: Int) -> Data? {
+    guard let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: px,
+        pixelsHigh: px,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else {
+        return nil
+    }
 
+    let s = CGFloat(px)
     let rect = NSRect(origin: .zero, size: NSSize(width: s, height: s))
+    guard let context = NSGraphicsContext(bitmapImageRep: rep) else {
+        return nil
+    }
+
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = context
+    defer { NSGraphicsContext.restoreGraphicsState() }
 
     // Rounded-rect background clip
     NSBezierPath(roundedRect: rect, xRadius: s * 0.22, yRadius: s * 0.22).setClip()
@@ -32,12 +50,6 @@ func makeIcon(px: Int) -> NSImage {
         )
     }
 
-    return img
-}
-
-func toPNG(_ image: NSImage) -> Data? {
-    guard let tiff = image.tiffRepresentation,
-          let rep = NSBitmapImageRep(data: tiff) else { return nil }
     return rep.representation(using: .png, properties: [:])
 }
 
@@ -58,7 +70,7 @@ let specs: [(String, Int)] = [
 ]
 
 for (name, size) in specs {
-    if let png = toPNG(makeIcon(px: size)) {
+    if let png = makeIconPNG(px: size) {
         try? png.write(to: URL(fileURLWithPath: "\(dir)/\(name)"))
         print("  \(name)")
     }

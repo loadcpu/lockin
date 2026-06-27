@@ -51,6 +51,9 @@ mkdir -p "$STAGING/Contents/Resources"
 cp ".build/release/$EXECUTABLE_NAME" "$STAGING/Contents/MacOS/$EXECUTABLE_NAME"
 cp "$ICON_PATH" "$STAGING/Contents/Resources/AppIcon.icns"
 
+echo "Stripping packaged binary…"
+strip -S -x "$STAGING/Contents/MacOS/$EXECUTABLE_NAME"
+
 INFO_PLIST="$STAGING/Contents/Info.plist"
 cat > "$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
