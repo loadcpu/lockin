@@ -250,20 +250,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             menu.addItem(timerMenuItem())
             menu.addItem(.separator())
         } else {
-            add(disabled: svc.hasLimitRestrictions ? "🔒  Category limits active" : "✅  Ready", to: menu)
-            menu.addItem(.separator())
-            menu.addItem(item("Dashboard",       action: #selector(openDashboard), key: "d"))
-            menu.addItem(item("Screen Time…",    action: #selector(openStats),     key: "t"))
             menu.addItem(item("Start Blocking", action: #selector(startBlocking), key: "s"))
         }
-
         menu.addItem(.separator())
-        menu.addItem(item("Check for Updates…", action: #selector(checkForUpdates), key: ""))
-        if updateChecker.isUpdateAvailable {
-            menu.addItem(item("Download Update", action: #selector(downloadUpdate), key: ""))
-        }
-        menu.addItem(.separator())
-        menu.addItem(item("Quit", action: #selector(handleQuit), key: "q"))
+        menu.addItem(item("Quit Lock In", action: #selector(handleQuit), key: "q"))
     }
 
     // MARK: - Actions
