@@ -231,11 +231,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     // MARK: - Main tick timer
 
     private func startMainTimer() {
-        mainTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             BlockerService.shared.tick()
             ActivityStore.shared.tick()
             self?.refreshButton()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        mainTimer = timer
     }
 
     // MARK: - NSMenuDelegate (rebuild on open)
