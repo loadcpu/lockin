@@ -3,26 +3,26 @@ import SwiftUI
 struct BlockingTimerMenuView: View {
     @ObservedObject private var service = BlockerService.shared
 
-    private let ringSize: CGFloat = 196
-    private let ringLineWidth: CGFloat = 12
+    private let ringSize: CGFloat = 164
+    private let ringLineWidth: CGFloat = 10
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             header
             timerRing
             statusLine
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 14)
-        .padding(.bottom, 14)
-        .frame(width: 286)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .frame(width: 240)
         .background(AppTheme.background.opacity(0.001))
     }
 
     private var header: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             Text("Timer")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.92))
 
             if let endDate = service.sessionEndDate {
@@ -31,7 +31,7 @@ struct BlockingTimerMenuView: View {
                 } icon: {
                     Image(systemName: "bell.fill")
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
             }
         }
@@ -59,19 +59,13 @@ struct BlockingTimerMenuView: View {
                 .rotationEffect(.degrees(-90))
                 .shadow(color: AppTheme.accentBlue.opacity(0.30), radius: 8)
 
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 Text(service.countdownClockString)
-                    .font(.system(size: 54, weight: .thin, design: .rounded).monospacedDigit())
+                    .font(.system(size: 42, weight: .thin, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
                     .contentTransition(.numericText())
-
-                Text("Session locked until timer ends")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
         }
         .frame(width: ringSize, height: ringSize)
     }
@@ -80,10 +74,10 @@ struct BlockingTimerMenuView: View {
         HStack(spacing: 6) {
             Circle()
                 .fill(AppTheme.accentBlue)
-                .frame(width: 7, height: 7)
+                .frame(width: 6, height: 6)
 
             Text("Blocking is active")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(AppTheme.accentBlue.opacity(0.95))
         }
     }
