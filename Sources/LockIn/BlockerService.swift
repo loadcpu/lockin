@@ -99,6 +99,32 @@ final class BlockerService: ObservableObject {
         session?.remainingFormatted ?? "0:00"
     }
 
+    var countdownClockString: String {
+        let totalSeconds = max(0, remainingSeconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+        }
+
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    var sessionProgress: Double {
+        guard let session else { return 0 }
+        let totalDuration = session.endTime.timeIntervalSince(session.startTime)
+        guard totalDuration > 0 else { return 1 }
+
+        let elapsed = Date().timeIntervalSince(session.startTime)
+        return min(max(elapsed / totalDuration, 0), 1)
+    }
+
+    var sessionEndDate: Date? {
+        session?.endTime
+    }
+
     // MARK: - Private
 
     private func endSession() {

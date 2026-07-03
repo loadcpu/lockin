@@ -12,6 +12,7 @@ private final class HostingWindowController: NSWindowController {
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
     private var statusItem: NSStatusItem!
+    private let statusMenu = NSMenu()
     private var mainTimer: Timer?
     private var dashboardWC: HostingWindowController?
     private var statsWC: HostingWindowController?
@@ -217,9 +218,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         statusItem.button?.image = makeMenuBarIcon()
         statusItem.button?.imagePosition = .imageLeft
 
-        let menu = NSMenu()
-        menu.delegate = self
-        statusItem.menu = menu
+        statusMenu.delegate = self
+        statusItem.menu = statusMenu
         refreshButton()
     }
 
@@ -245,10 +245,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         let svc = BlockerService.shared
 
         if svc.isBlocking {
-            add(disabled: "🔴  Blocking Active", to: menu)
-            add(disabled: "     ⏱ \(svc.remainingTimeString) remaining", to: menu)
+            menu.addItem(timerMenuItem())
             menu.addItem(.separator())
-            add(disabled: "🔒  Session locked – cannot stop early", to: menu)
         } else {
             add(disabled: svc.hasLimitRestrictions ? "🔒  Category limits active" : "✅  Ready", to: menu)
             menu.addItem(.separator())
@@ -378,6 +376,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         i.isEnabled = false
         menu.addItem(i)
+    }
+
+    private func timerMenuItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        item.isEnabled = false
+
+        let hosting = NSHostingView(rootView: BlockingTimerMenuView())
+        hosting.layoutSubtreeIfNeeded()
+        let size = hosting.fittingSize
+        hosting.frame = NSRect(origin: .zero, size: size)
+        item.view = hosting
+
+        return item
     }
 
     private func makeHostingWindow<V: View>(
