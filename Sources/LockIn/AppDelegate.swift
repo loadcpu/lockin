@@ -40,7 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         updateChecker.checkForUpdatesIfNeeded()
         setupStatusItem()
         startMainTimer()
-        showDashboard()
     }
 
     private func setupMainMenu() {

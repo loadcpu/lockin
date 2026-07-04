@@ -10,7 +10,6 @@ struct BlockingTimerMenuView: View {
         VStack(spacing: 10) {
             header
             timerRing
-            statusLine
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -72,15 +71,4 @@ struct BlockingTimerMenuView: View {
         .frame(width: ringSize, height: ringSize)
     }
 
-    private var statusLine: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(AppTheme.accentBlue)
-                .frame(width: 6, height: 6)
-
-            Text("Blocking is active")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppTheme.accentBlue.opacity(0.95))
-        }
-    }
 }
