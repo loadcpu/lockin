@@ -113,11 +113,15 @@ final class BlockerService: ObservableObject {
     }
 
     var sessionProgress: Double {
+        sessionProgress(at: Date())
+    }
+
+    func sessionProgress(at date: Date) -> Double {
         guard let session else { return 0 }
         let totalDuration = session.endTime.timeIntervalSince(session.startTime)
         guard totalDuration > 0 else { return 1 }
 
-        let elapsed = Date().timeIntervalSince(session.startTime)
+        let elapsed = date.timeIntervalSince(session.startTime)
         return min(max(elapsed / totalDuration, 0), 1)
     }
 
