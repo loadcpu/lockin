@@ -1,12 +1,6 @@
 import SwiftUI
 import AppKit
 
-private let dashboardAccentBlue = Color(
-    red: 26.0 / 255.0,
-    green: 56.0 / 255.0,
-    blue: 209.0 / 255.0
-)
-
 struct DashboardView: View {
     @ObservedObject private var service = BlockerService.shared
     @ObservedObject private var store = ActivityStore.shared
@@ -66,7 +60,7 @@ struct DashboardView: View {
         VStack(spacing: 6) {
             Text("SESSION ACTIVE")
                 .font(.footnote.bold())
-                .foregroundColor(.red)
+                .foregroundColor(AppTheme.linkBlue)
                 .tracking(1)
             Text(service.remainingTimeString)
                 .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
@@ -76,7 +70,7 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(Color.red.opacity(0.08))
+        .background(AppTheme.accentBlue.opacity(0.16))
         .cornerRadius(12)
     }
 
@@ -94,7 +88,7 @@ struct DashboardView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .tint(dashboardAccentBlue)
+            .tint(AppTheme.accentBlue)
         }
     }
 
@@ -111,11 +105,7 @@ struct DashboardView: View {
                 Button("Statistics") { onViewStats() }
                     .buttonStyle(.plain)
                     .font(.footnote)
-                    .foregroundColor(Color(
-                        red: 57.0 / 255.0,
-                        green: 123.0 / 255.0,
-                        blue: 247.0 / 255.0
-                    ))
+                    .foregroundColor(AppTheme.linkBlue)
             }
 
             if focusToday > 0 {
