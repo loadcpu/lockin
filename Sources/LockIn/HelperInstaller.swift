@@ -4,8 +4,8 @@ import AppKit
 enum HelperInstaller {
     private static let helperPath   = "/usr/local/bin/lockin-hosts"
     private static let sudoersPath  = "/etc/sudoers.d/lockin"
-    private static let versionTag   = "# sb-version v8"
-    private static let defaultsKey  = "helperInstalled_v8"
+    private static let versionTag   = "# sb-version v9"
+    private static let defaultsKey  = "helperInstalled_v9"
     private static let agentVersion = "<!-- sb-agent v3 -->"
 
     @discardableResult
@@ -132,7 +132,7 @@ enum HelperInstaller {
 
     private static let helperScriptContent: String = #"""
 #!/bin/bash
-# sb-version v8
+# sb-version v9
 ACTION="$1"
 TEMPFILE="$2"
 ANCHOR="com.apple/lockin"
@@ -151,18 +151,9 @@ if [ "$ACTION" = "apply" ]; then
             dscacheutil -q host -a name     "www.$domain" 2>/dev/null | awk '/ipv6_address:/{print $2}'   >> "$TMPIPS"
         done
 
-        # Source 2: lsof — exact IPs browsers have live connections to right now
-        lsof -i tcp:443 -i tcp:80 -n -P 2>/dev/null | \
-            awk '/ESTABLISHED/ && ($1 ~ /Safari|Google|Chrome|Arc|Brave|firefox|msedge|Edge|Opera/) {
-                split($9, a, "->")
-                addr = a[2]
-                if (addr ~ /^\[/) {
-                    gsub(/^\[/, "", addr); sub(/\]:[0-9]*$/, "", addr); ip = addr
-                } else {
-                    split(addr, b, ":"); ip = b[1]
-                }
-                if (ip != "" && ip !~ /^127\./ && ip != "::1") print ip
-            }' >> "$TMPIPS"
+        # Do not infer blocked IPs from the browser's live sockets. lsof cannot
+        # associate a socket with its hostname, so doing that would block
+        # unrelated sites such as Axiom when they happen to be open.
     fi
 
     # Update /etc/hosts
@@ -195,6 +186,9 @@ table <blocked> { $IPS}
 block return quick proto tcp from any to <blocked> port { 80 443 }
 block return quick proto udp from any to <blocked> port 443
 EOF
+    else
+        # Replace an old table even when DNS is temporarily unavailable.
+        echo "" | pfctl -a "$ANCHOR" -f - 2>/dev/null || true
     fi
 
 elif [ "$ACTION" = "remove" ]; then
