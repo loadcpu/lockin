@@ -8,6 +8,11 @@ private let timerFieldHeight: CGFloat = 172
 private let timerSeparatorWidth: CGFloat = 28
 private let timerSelectionCornerRadius: CGFloat = 16
 private let timerSelectionHeight: CGFloat = 122
+private let presetCardSize = CGSize(width: 158, height: 186)
+private let presetGridSpacing: CGFloat = 16
+private let presetGridWidth: CGFloat = 506
+private let presetGridHeight: CGFloat = 230
+private let presetCardCornerRadius: CGFloat = 16
 private enum TimerField: Hashable {
     case hours
     case minutes
@@ -34,7 +39,6 @@ struct BlockSetupView: View {
     @State private var websiteSearch = ""
     @State private var websiteError = ""
 
-    private let durationOptions = [25, 60, 90]
     private enum SetupStep: String, CaseIterable {
         case list = "List"
         case timer = "Timer"
@@ -61,8 +65,20 @@ struct BlockSetupView: View {
         _hasInitializedSelection = State(initialValue: !seededItems.isEmpty)
     }
 
+    private var timerPresetOptions: [Int] {
+        Self.normalizedTimerPresets(service.config.timerPresets)
+    }
+
+    private var canSaveCurrentPreset: Bool {
+        selectedMinutes > 0 && !timerPresetOptions.contains(selectedMinutes)
+    }
+
+    private var canDeleteSelectedPreset: Bool {
+        timerPresetOptions.contains(selectedMinutes) && !defaultTimerPresets.contains(selectedMinutes)
+    }
+
     private var isCustomSelected: Bool {
-        !durationOptions.contains(selectedMinutes)
+        !timerPresetOptions.contains(selectedMinutes)
     }
 
     private var hoursText: Binding<String> {
@@ -108,6 +124,13 @@ struct BlockSetupView: View {
                 Spacer()
             }
 
+            if step == .timer {
+                HStack {
+                    Spacer()
+                    savePresetButton
+                }
+            }
+
             HStack(spacing: 0) {
                 ForEach(SetupStep.allCases, id: \.self) { current in
                     Button {
@@ -143,6 +166,23 @@ struct BlockSetupView: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .appWindowSurface()
+    }
+
+    private var savePresetButton: some View {
+        Button {
+            saveCurrentPreset()
+        } label: {
+            Image(systemName: canSaveCurrentPreset ? "plus" : "checkmark")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(canSaveCurrentPreset ? .white : .secondary)
+                .frame(width: 34, height: 34)
+        }
+        .buttonStyle(.plain)
+        .background(Color.white.opacity(canSaveCurrentPreset ? 0.08 : 0.04))
+        .clipShape(Circle())
+        .overlay(Circle().stroke(canSaveCurrentPreset ? Color.white.opacity(0.12) : AppTheme.separator, lineWidth: 1))
+        .disabled(!canSaveCurrentPreset)
+        .help(canSaveCurrentPreset ? "Save current timer as a preset" : "Current timer is already saved")
     }
 
     private var content: some View {
@@ -205,23 +245,25 @@ struct BlockSetupView: View {
                 }
             }
 
-            VStack(spacing: 14) {
-                Text("Presets")
-                    .font(.headline.weight(.semibold))
-                    .foregroundColor(.secondary)
+            VStack(spacing: 16) {
+                Text("Recent")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.96))
+                    .frame(width: presetGridWidth, alignment: .leading)
 
-                HStack(spacing: 10) {
-                    ForEach(durationOptions, id: \.self) { mins in
-                        Button {
-                            selectedMinutes = mins
-                            syncTimeFieldsFromSelection()
-                            focusedTimeField = nil
-                        } label: {
-                            Text("\(mins) min")
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.fixed(presetCardSize.width), spacing: presetGridSpacing), count: 3),
+                        spacing: presetGridSpacing
+                    ) {
+                        ForEach(timerPresetOptions, id: \.self) { mins in
+                            presetCard(for: mins)
                         }
-                        .buttonStyle(DurationButtonStyle(selected: selectedMinutes == mins))
                     }
+                    .padding(1)
+                    .padding(.bottom, 4)
                 }
+                .frame(width: presetGridWidth, height: presetGridHeight)
             }
 
             Spacer(minLength: 0)
@@ -970,6 +1012,99 @@ struct BlockSetupView: View {
         )
     }
 
+    private func saveCurrentPreset() {
+        guard canSaveCurrentPreset else { return }
+        let updated = Self.normalizedTimerPresets(timerPresetOptions + [selectedMinutes])
+        service.updateTimerPresets(updated)
+    }
+
+    private func deleteSelectedPreset() {
+        guard canDeleteSelectedPreset else { return }
+        let updated = timerPresetOptions.filter { $0 != selectedMinutes }
+        service.updateTimerPresets(Self.normalizedTimerPresets(updated))
+    }
+
+    private func selectPreset(_ minutes: Int) {
+        selectedMinutes = minutes
+        syncTimeFieldsFromSelection()
+        focusedTimeField = nil
+    }
+
+    private func startPreset(_ minutes: Int) {
+        selectPreset(minutes)
+        confirmAndStart()
+    }
+
+    private func deletePreset(_ minutes: Int) {
+        let updated = timerPresetOptions.filter { $0 != minutes }
+        service.updateTimerPresets(Self.normalizedTimerPresets(updated))
+    }
+
+    private func presetCard(for minutes: Int) -> some View {
+        let isSelected = selectedMinutes == minutes
+        return VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.28), lineWidth: 4)
+                    .frame(width: 108, height: 108)
+
+                VStack(spacing: 4) {
+                    Text(Self.presetClockText(for: minutes))
+                        .font(.system(size: 24, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.94))
+                        .monospacedDigit()
+
+                    Text(Self.presetDurationText(for: minutes))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+            }
+
+            HStack {
+                Button {
+                    deletePreset(minutes)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.55))
+                        .frame(width: 26, height: 26)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button {
+                    startPreset(minutes)
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.green)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(width: presetCardSize.width, height: presetCardSize.height)
+        .background(
+            RoundedRectangle(cornerRadius: presetCardCornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.12))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: presetCardCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: presetCardCornerRadius, style: .continuous)
+                .stroke(isSelected ? blockSetupAccentBlue : Color.clear, lineWidth: 2)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: presetCardCornerRadius, style: .continuous))
+        .onTapGesture {
+            selectPreset(minutes)
+        }
+    }
+
     private func updateSelectedDuration(hours: String, minutes: String, seconds: String) {
         let normalized = TimerInputRules.normalized(hours: hours, minutes: minutes, seconds: seconds)
 
@@ -1035,6 +1170,39 @@ struct BlockSetupView: View {
             return roundedFont
         }
         return baseFont
+    }
+
+    private static func normalizedTimerPresets(_ presets: [Int]) -> [Int] {
+        let cleaned = presets
+            .map { min(max($0, 1), 1440) }
+            .reduce(into: [Int]()) { result, minutes in
+                if !result.contains(minutes) {
+                    result.append(minutes)
+                }
+            }
+            .sorted()
+        return cleaned.isEmpty ? defaultTimerPresets : cleaned
+    }
+
+    private static func presetClockText(for minutes: Int) -> String {
+        let hours = minutes / 60
+        let mins = minutes % 60
+        if hours > 0 {
+            return String(format: "%02d:%02d", hours, mins)
+        }
+        return String(format: "%02d:00", mins)
+    }
+
+    private static func presetDurationText(for minutes: Int) -> String {
+        let hours = minutes / 60
+        let mins = minutes % 60
+        if hours > 0 && mins > 0 {
+            return "\(hours) hr \(mins) min"
+        }
+        if hours > 0 {
+            return hours == 1 ? "1 hr" : "\(hours) hr"
+        }
+        return "\(minutes) min"
     }
 }
 
@@ -1115,7 +1283,6 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
                 currentText: parent.text,
                 proposedText: textField.stringValue
             )
-
             if textField.stringValue != resolved {
                 textField.stringValue = resolved
                 if let editor = textField.currentEditor() {
@@ -1123,7 +1290,6 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
                     editor.selectAll(nil)
                 }
             }
-
             parent.text = resolved
         }
 
@@ -1165,7 +1331,6 @@ private final class TimerDigitsFormatter: Formatter {
             proposedText: partialString
         )
         guard resolved != partialString else { return true }
-
         partialStringPtr.pointee = resolved as NSString
         proposedSelRangePtr?.pointee = origSelRange
         return false
@@ -1216,25 +1381,6 @@ private struct BlockItem: Identifiable {
     let icon: NSImage?
 
     var id: String { blockingName + (isApp ? ":app" : ":web") }
-}
-
-private struct DurationButtonStyle: ButtonStyle {
-    let selected: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.body.weight(selected ? .semibold : .regular))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(selected ? blockSetupAccentBlue : AppTheme.controlSurface)
-            .foregroundColor(selected ? .white : .primary)
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(selected ? blockSetupAccentBlue : AppTheme.separator, lineWidth: 1)
-            )
-            .opacity(configuration.isPressed ? 0.85 : 1)
-    }
 }
 
 private struct FooterCapsuleButtonStyle: ButtonStyle {
