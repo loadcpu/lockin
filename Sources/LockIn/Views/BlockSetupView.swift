@@ -69,10 +69,6 @@ struct BlockSetupView: View {
         Self.normalizedTimerPresets(service.config.timerPresets)
     }
 
-    private var canSaveCurrentPreset: Bool {
-        selectedMinutes > 0 && !timerPresetOptions.contains(selectedMinutes)
-    }
-
     private var canDeleteSelectedPreset: Bool {
         timerPresetOptions.contains(selectedMinutes) && !defaultTimerPresets.contains(selectedMinutes)
     }
@@ -124,13 +120,6 @@ struct BlockSetupView: View {
                 Spacer()
             }
 
-            if step == .timer {
-                HStack {
-                    Spacer()
-                    savePresetButton
-                }
-            }
-
             HStack(spacing: 0) {
                 ForEach(SetupStep.allCases, id: \.self) { current in
                     Button {
@@ -166,23 +155,6 @@ struct BlockSetupView: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .appWindowSurface()
-    }
-
-    private var savePresetButton: some View {
-        Button {
-            saveCurrentPreset()
-        } label: {
-            Image(systemName: canSaveCurrentPreset ? "plus" : "checkmark")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(canSaveCurrentPreset ? .white : .secondary)
-                .frame(width: 34, height: 34)
-        }
-        .buttonStyle(.plain)
-        .background(Color.white.opacity(canSaveCurrentPreset ? 0.08 : 0.04))
-        .clipShape(Circle())
-        .overlay(Circle().stroke(canSaveCurrentPreset ? Color.white.opacity(0.12) : AppTheme.separator, lineWidth: 1))
-        .disabled(!canSaveCurrentPreset)
-        .help(canSaveCurrentPreset ? "Save current timer as a preset" : "Current timer is already saved")
     }
 
     private var content: some View {
@@ -625,6 +597,7 @@ struct BlockSetupView: View {
         focusedTimeField = nil
 
         guard selectedMinutes > 120 else {
+            addSelectedMinutesToRecents()
             onStart(selectedMinutes, checkedApps, checkedSites)
             return
         }
@@ -637,6 +610,7 @@ struct BlockSetupView: View {
         alert.addButton(withTitle: "Start")
         alert.addButton(withTitle: "Cancel")
         if alert.runModal() == .alertFirstButtonReturn {
+            addSelectedMinutesToRecents()
             onStart(selectedMinutes, checkedApps, checkedSites)
         }
     }
@@ -1012,8 +986,8 @@ struct BlockSetupView: View {
         )
     }
 
-    private func saveCurrentPreset() {
-        guard canSaveCurrentPreset else { return }
+    private func addSelectedMinutesToRecents() {
+        guard selectedMinutes > 0, !timerPresetOptions.contains(selectedMinutes) else { return }
         let updated = Self.normalizedTimerPresets(timerPresetOptions + [selectedMinutes])
         service.updateTimerPresets(updated)
     }
@@ -1043,22 +1017,29 @@ struct BlockSetupView: View {
     private func presetCard(for minutes: Int) -> some View {
         let isSelected = selectedMinutes == minutes
         return VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.28), lineWidth: 4)
-                    .frame(width: 108, height: 108)
+            Button {
+                selectPreset(minutes)
+            } label: {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.28), lineWidth: 4)
+                        .frame(width: 108, height: 108)
 
-                VStack(spacing: 4) {
-                    Text(Self.presetClockText(for: minutes))
-                        .font(.system(size: 24, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.94))
-                        .monospacedDigit()
+                    VStack(spacing: 4) {
+                        Text(Self.presetClockText(for: minutes))
+                            .font(.system(size: 24, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.94))
+                            .monospacedDigit()
 
-                    Text(Self.presetDurationText(for: minutes))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
+                        Text(Self.presetDurationText(for: minutes))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
             HStack {
                 Button {
@@ -1099,10 +1080,6 @@ struct BlockSetupView: View {
             RoundedRectangle(cornerRadius: presetCardCornerRadius, style: .continuous)
                 .stroke(isSelected ? blockSetupAccentBlue : Color.clear, lineWidth: 2)
         )
-        .contentShape(RoundedRectangle(cornerRadius: presetCardCornerRadius, style: .continuous))
-        .onTapGesture {
-            selectPreset(minutes)
-        }
     }
 
     private func updateSelectedDuration(hours: String, minutes: String, seconds: String) {
