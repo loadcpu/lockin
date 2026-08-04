@@ -12,6 +12,10 @@ final class BlockerService: ObservableObject {
     @Published var remainingSeconds = 0
     @Published var config: Config = .load()
     @Published private(set) var hasLimitRestrictions = false
+    @Published private(set) var isPaused = false
+    @Published private(set) var breakRemainingSeconds = 0
+
+    private var breakEndNotified = false
 
     @Published private(set) var primedBrowserIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "primedBrowserIDs") ?? []) {
         didSet { UserDefaults.standard.set(Array(primedBrowserIDs), forKey: "primedBrowserIDs") }
@@ -40,7 +44,10 @@ final class BlockerService: ObservableObject {
             if s.isActive {
                 session = s
                 isBlocking = true
+                isPaused = s.isPaused
                 remainingSeconds = s.remainingSeconds
+                breakRemainingSeconds = s.breakRemainingSeconds
+                breakEndNotified = s.isPaused && s.breakRemainingSeconds == 0
                 refreshEffectiveBlocks(reloadBrowserTabs: true)
             } else {
                 HostsManager.removeBlocks()
@@ -54,6 +61,15 @@ final class BlockerService: ObservableObject {
     // Called every second by AppDelegate's timer
     func tick() {
         guard isBlocking, let s = session else { return }
+        if s.isPaused {
+            remainingSeconds = s.remainingSeconds
+            breakRemainingSeconds = s.breakRemainingSeconds
+            if s.breakRemainingSeconds == 0 && !breakEndNotified {
+                breakEndNotified = true
+                notifyBreakEnded()
+            }
+            return
+        }
         if !s.isActive {
             endSession()
             return
@@ -76,8 +92,45 @@ final class BlockerService: ObservableObject {
         // Schedule the end notification now, while the app is stable.
         // The system daemon holds it and fires it even after this process exits,
         // avoiding the BlockSession.clear() → launchd SIGTERM → app-exit race.
-        scheduleSessionEndNotification(minutes: minutes)
+        scheduleSessionEndNotification(after: TimeInterval(minutes * 60))
         HelperInstaller.syncLaunchAgent(shouldExist: true)
+    }
+
+    /// Number of 10-minute breaks earned so far (one per full hour of active work) that
+    /// haven't been used yet.
+    var breaksAvailable: Int { session?.breaksAvailable ?? 0 }
+
+    /// Starts a break of the given length (clamped to 0...10 minutes). Requires an earned,
+    /// unused break to be available. Enforcement pauses and the countdown freezes until
+    /// `resumeSession()` is called — the break ending does not resume the session automatically.
+    func pauseSession(minutes: Int) {
+        guard var s = session, !s.isPaused, s.breaksAvailable > 0 else { return }
+        s.pauseStartedAt = Date()
+        s.breakMinutes = min(max(minutes, 0), 10)
+        s.breaksTaken += 1
+        session = s
+        s.save()
+        isPaused = true
+        breakRemainingSeconds = s.breakRemainingSeconds
+        breakEndNotified = false
+        refreshEffectiveBlocks(reloadBrowserTabs: true)
+    }
+
+    /// Ends the current break and resumes enforcement. The session's remaining time is
+    /// preserved by pushing the end time back by exactly how long the break lasted.
+    func resumeSession() {
+        guard var s = session, let pausedAt = s.pauseStartedAt else { return }
+        let pauseDuration = Date().timeIntervalSince(pausedAt)
+        s.totalPausedSeconds += pauseDuration
+        s.endTime = s.endTime.addingTimeInterval(pauseDuration)
+        s.pauseStartedAt = nil
+        session = s
+        s.save()
+        isPaused = false
+        breakRemainingSeconds = 0
+        remainingSeconds = s.remainingSeconds
+        refreshEffectiveBlocks(reloadBrowserTabs: true)
+        scheduleSessionEndNotification(after: TimeInterval(s.remainingSeconds))
     }
 
     func updateLimitBlocks(apps: [String], websites: [String]) {
@@ -118,17 +171,21 @@ final class BlockerService: ObservableObject {
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
+    var breakCountdownString: String {
+        let totalSeconds = max(0, breakRemainingSeconds)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    var breakMinutesChosen: Int { session?.breakMinutes ?? 0 }
+
     var sessionProgress: Double {
         sessionProgress(at: Date())
     }
 
     func sessionProgress(at date: Date) -> Double {
-        guard let session else { return 0 }
-        let totalDuration = session.endTime.timeIntervalSince(session.startTime)
-        guard totalDuration > 0 else { return 1 }
-
-        let elapsed = date.timeIntervalSince(session.startTime)
-        return min(max(elapsed / totalDuration, 0), 1)
+        session?.progress(at: date) ?? 0
     }
 
     var sessionEndDate: Date? {
@@ -144,28 +201,44 @@ final class BlockerService: ObservableObject {
         // The session-end notification was pre-scheduled at startSession() and is
         // held by the system daemon — no XPC call needed here during the SIGTERM race.
         isBlocking = false
+        isPaused = false
         remainingSeconds = 0
+        breakRemainingSeconds = 0
         session = nil
         BlockSession.clear()
         HelperInstaller.syncLaunchAgent(shouldExist: false)
         refreshEffectiveBlocks(reloadBrowserTabs: false)
     }
 
-    private func scheduleSessionEndNotification(minutes: Int) {
+    private func scheduleSessionEndNotification(after seconds: TimeInterval) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
             guard granted else { return }
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["session-complete"])
             let content = UNMutableNotificationContent()
             content.title = "Focus session complete"
-            content.body = "\(minutes)m focused."
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(minutes * 60), repeats: false)
+            content.body = "Your focus session has ended."
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, seconds), repeats: false)
             let request = UNNotificationRequest(identifier: "session-complete", content: content, trigger: trigger)
             UNUserNotificationCenter.current().add(request) { error in
                 if let error {
                     NSLog("LockIn: notification schedule failed: %@", error.localizedDescription)
                 } else {
-                    NSLog("LockIn: session-end notification scheduled for %dm", minutes)
+                    NSLog("LockIn: session-end notification scheduled for %.0fs", seconds)
                 }
+            }
+        }
+    }
+
+    private func notifyBreakEnded() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "Break's over"
+            content.body = "Resume your focus session whenever you're ready."
+            content.sound = .default
+            let request = UNNotificationRequest(identifier: "break-ended", content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error { NSLog("LockIn: break-ended notification failed: %@", error.localizedDescription) }
             }
         }
     }
@@ -194,8 +267,9 @@ final class BlockerService: ObservableObject {
     }
 
     private func refreshEffectiveBlocks(reloadBrowserTabs shouldReload: Bool) {
-        let sessionApps = Set(session?.blockedApps.map { $0.lowercased() } ?? [])
-        let sessionWebsites = Set((session?.blockedWebsites ?? []).compactMap(DomainMatcher.normalizeHost))
+        let sessionOnBreak = session?.isPaused ?? false
+        let sessionApps = sessionOnBreak ? [] : Set(session?.blockedApps.map { $0.lowercased() } ?? [])
+        let sessionWebsites = sessionOnBreak ? [] : Set((session?.blockedWebsites ?? []).compactMap(DomainMatcher.normalizeHost))
         blockedAppNames = sessionApps.union(limitBlockedApps)
         let websites = Array(sessionWebsites.union(limitBlockedWebsites))
 
@@ -225,7 +299,8 @@ final class BlockerService: ObservableObject {
 
     private func matchesBlockedWebsite(_ domain: String) -> Bool {
         guard let normalizedDomain = DomainMatcher.normalizeHost(domain) else { return false }
-        let blockedWebsites = Set((session?.blockedWebsites ?? []).compactMap(DomainMatcher.normalizeHost))
+        let sessionWebsites = (session?.isPaused ?? false) ? [] : (session?.blockedWebsites ?? [])
+        let blockedWebsites = Set(sessionWebsites.compactMap(DomainMatcher.normalizeHost))
             .union(limitBlockedWebsites)
         guard !blockedWebsites.isEmpty else { return false }
         return blockedWebsites.contains { DomainMatcher.matches(host: normalizedDomain, blockedDomain: $0) }

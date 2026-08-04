@@ -224,7 +224,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
     private func refreshButton() {
         let svc = BlockerService.shared
-        statusItem.button?.title = svc.isBlocking ? "  \(svc.remainingTimeString)" : ""
+        guard svc.isBlocking else {
+            statusItem.button?.title = ""
+            return
+        }
+        statusItem.button?.title = svc.isPaused ? "  Break \(svc.breakCountdownString)" : "  \(svc.remainingTimeString)"
     }
 
     // MARK: - Main tick timer
@@ -371,7 +375,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
     private func timerMenuItem() -> NSMenuItem {
         let item = NSMenuItem()
-        item.isEnabled = false
+        // Enabled so the buttons inside the custom view (pause/resume) receive clicks.
+        item.isEnabled = true
 
         let hosting = NSHostingView(rootView: BlockingTimerMenuView())
         hosting.layoutSubtreeIfNeeded()

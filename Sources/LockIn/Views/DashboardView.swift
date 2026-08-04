@@ -8,6 +8,8 @@ struct DashboardView: View {
     let onViewStats: () -> Void
 
     @State private var focusToday: TimeInterval = 0
+    @State private var showingBreakPicker = false
+    @State private var breakMinutes: Double = 10
     var body: some View {
         VStack(spacing: 0) {
             heroSection
@@ -49,6 +51,7 @@ struct DashboardView: View {
         Group {
             if service.isBlocking {
                 blockingStatus
+                breakControls
             } else {
                 readyStatus
             }
@@ -58,20 +61,59 @@ struct DashboardView: View {
 
     private var blockingStatus: some View {
         VStack(spacing: 6) {
-            Text("SESSION ACTIVE")
+            Text(service.isPaused ? "ON BREAK" : "SESSION ACTIVE")
                 .font(.footnote.bold())
-                .foregroundColor(AppTheme.linkBlue)
+                .foregroundColor(service.isPaused ? .orange : AppTheme.linkBlue)
                 .tracking(1)
-            Text(service.remainingTimeString)
+            Text(service.isPaused ? service.breakCountdownString : service.remainingTimeString)
                 .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
-            Text("remaining")
+            Text(service.isPaused ? (service.breakRemainingSeconds > 0 ? "break remaining" : "break's over — resume when ready") : "remaining")
                 .font(.footnote)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(AppTheme.accentBlue.opacity(0.16))
+        .background((service.isPaused ? Color.orange : AppTheme.accentBlue).opacity(0.16))
         .cornerRadius(12)
+    }
+
+    @ViewBuilder
+    private var breakControls: some View {
+        if service.isPaused {
+            Button(action: { service.resumeSession() }) {
+                Text("Resume Session").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AppTheme.accentBlue)
+            .padding(.top, 10)
+        } else if showingBreakPicker {
+            VStack(spacing: 8) {
+                Text("\(Int(breakMinutes)) min break")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Slider(value: $breakMinutes, in: 0...10, step: 1)
+                HStack(spacing: 8) {
+                    Button("Cancel") { showingBreakPicker = false }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                    Button("Start Break") {
+                        service.pauseSession(minutes: Int(breakMinutes))
+                        showingBreakPicker = false
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.top, 10)
+        } else if service.breaksAvailable > 0 {
+            Button(action: { showingBreakPicker = true }) {
+                Label("Take a Break (\(service.breaksAvailable) earned)", systemImage: "pause.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .padding(.top, 10)
+        }
     }
 
     private var readyStatus: some View {
