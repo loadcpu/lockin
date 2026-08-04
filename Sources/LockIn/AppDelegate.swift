@@ -422,7 +422,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        let isSessionComplete = notification.request.identifier == "session-complete"
+        completionHandler(isSessionComplete ? [.banner] : [.banner, .sound])
     }
 
     func userNotificationCenter(

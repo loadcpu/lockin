@@ -65,6 +65,9 @@ struct BlockingTimerMenuView: View {
                     .font(.system(size: 42, weight: .thin, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
                     .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 16)
         }

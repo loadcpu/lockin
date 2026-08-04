@@ -18,11 +18,33 @@ let defaultWebsites: [String] = [
     "buzzfeed.com",
 ]
 
+let defaultTimerPresets: [Int] = [25, 60, 90]
+
 struct Config: Codable {
     var blockedApps: [String] = []
     var blockedWebsites: [String] = defaultWebsites
+    var timerPresets: [Int] = defaultTimerPresets
     var appCategoryOverrides: [String: String] = [:]
     var categoryLimits: [String: Int] = [:]  // AppCategory.rawValue → minutes (0 = off)
+
+    private enum CodingKeys: String, CodingKey {
+        case blockedApps
+        case blockedWebsites
+        case timerPresets
+        case appCategoryOverrides
+        case categoryLimits
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        blockedApps = try container.decodeIfPresent([String].self, forKey: .blockedApps) ?? []
+        blockedWebsites = try container.decodeIfPresent([String].self, forKey: .blockedWebsites) ?? defaultWebsites
+        timerPresets = try container.decodeIfPresent([Int].self, forKey: .timerPresets) ?? defaultTimerPresets
+        appCategoryOverrides = try container.decodeIfPresent([String: String].self, forKey: .appCategoryOverrides) ?? [:]
+        categoryLimits = try container.decodeIfPresent([String: Int].self, forKey: .categoryLimits) ?? [:]
+    }
 
     func category(for identifier: String) -> AppCategory {
         if let raw = appCategoryOverrides[identifier], let cat = AppCategory(rawValue: raw) { return cat }

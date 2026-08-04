@@ -95,6 +95,12 @@ final class BlockerService: ObservableObject {
         config.save()
     }
 
+    func updateTimerPresets(_ presets: [Int]) {
+        config.timerPresets = presets
+        config.save()
+        objectWillChange.send()
+    }
+
     var remainingTimeString: String {
         session?.remainingFormatted ?? "0:00"
     }
@@ -106,7 +112,7 @@ final class BlockerService: ObservableObject {
         let seconds = totalSeconds % 60
 
         if hours > 0 {
-            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         }
 
         return String(format: "%02d:%02d", minutes, seconds)
@@ -146,13 +152,12 @@ final class BlockerService: ObservableObject {
     }
 
     private func scheduleSessionEndNotification(minutes: Int) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
             guard granted else { return }
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["session-complete"])
             let content = UNMutableNotificationContent()
             content.title = "Focus session complete"
             content.body = "\(minutes)m focused."
-            content.sound = .default
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(minutes * 60), repeats: false)
             let request = UNNotificationRequest(identifier: "session-complete", content: content, trigger: trigger)
             UNUserNotificationCenter.current().add(request) { error in
