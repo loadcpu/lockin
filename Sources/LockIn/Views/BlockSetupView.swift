@@ -1027,7 +1027,7 @@ struct BlockSetupView: View {
 
                     VStack(spacing: 4) {
                         Text(Self.presetClockText(for: minutes))
-                            .font(.system(size: 24, weight: .medium, design: .rounded))
+                            .font(.system(size: 24, weight: .regular, design: .rounded))
                             .foregroundColor(.white.opacity(0.94))
                             .monospacedDigit()
 
@@ -1114,7 +1114,7 @@ struct BlockSetupView: View {
 
     private var timeSeparator: some View {
         Text(":")
-            .font(.system(size: 98, weight: .ultraLight, design: .rounded))
+            .font(.system(size: 98, weight: .thin, design: .rounded))
             .foregroundColor(.white.opacity(0.9))
             .offset(y: -8)
             .frame(width: timerSeparatorWidth)
@@ -1141,7 +1141,7 @@ struct BlockSetupView: View {
     }
 
     private func timerFieldFont() -> NSFont {
-        let baseFont = NSFont.systemFont(ofSize: 108, weight: .ultraLight)
+        let baseFont = NSFont.systemFont(ofSize: 108, weight: .thin)
         if let descriptor = baseFont.fontDescriptor.withDesign(.rounded),
            let roundedFont = NSFont(descriptor: descriptor, size: 108) {
             return roundedFont
@@ -1205,7 +1205,7 @@ private struct SelectAllTimerTextField: NSViewRepresentable {
         textField.isSelectable = true
         textField.focusRingType = .none
         textField.alignment = .center
-        textField.font = .systemFont(ofSize: 108, weight: .ultraLight)
+        textField.font = .systemFont(ofSize: 108, weight: .thin)
         if let descriptor = textField.font?.fontDescriptor.withDesign(.rounded) {
             textField.font = NSFont(descriptor: descriptor, size: 108)
         }
