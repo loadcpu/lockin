@@ -184,6 +184,8 @@ struct BlockingTimerMenuView: View {
                 Text(title)
             }
             .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .foregroundColor(foreground)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
@@ -205,6 +207,8 @@ struct BlockingTimerMenuView: View {
                 Text(title)
             }
             .font(.system(size: 13, weight: .medium))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .foregroundColor(.white.opacity(0.92))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)

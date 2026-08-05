@@ -2,6 +2,25 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
+/// Hosting view for an `NSMenuItem.view` whose SwiftUI content can change height.
+///
+/// A menu item view keeps whatever frame it had when the menu was built, so content that
+/// grows later (the break picker expanding under the timer ring) gets clipped by the menu.
+/// Re-syncing the frame to the fitting size and notifying the menu makes the menu re-measure.
+private final class MenuItemHostingView<Content: View>: NSHostingView<Content> {
+    override func layout() {
+        super.layout()
+
+        let fitting = fittingSize
+        guard fitting.height > 0, abs(fitting.height - frame.height) > 0.5 else { return }
+
+        setFrameSize(NSSize(width: max(frame.width, fitting.width), height: fitting.height))
+        if let menuItem = enclosingMenuItem {
+            menuItem.menu?.itemChanged(menuItem)
+        }
+    }
+}
+
 private final class HostingWindowController: NSWindowController {
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
@@ -378,10 +397,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         // Enabled so the buttons inside the custom view (pause/resume) receive clicks.
         item.isEnabled = true
 
-        let hosting = NSHostingView(rootView: BlockingTimerMenuView())
+        // The view changes height when the break picker expands, so it has to be able to
+        // grow after the menu item is created (see MenuItemHostingView).
+        let hosting = MenuItemHostingView(rootView: BlockingTimerMenuView())
+        hosting.sizingOptions = [.intrinsicContentSize]
         hosting.layoutSubtreeIfNeeded()
-        let size = hosting.fittingSize
-        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
         item.view = hosting
 
         return item
