@@ -60,21 +60,18 @@ struct DashboardView: View {
     }
 
     private var blockingStatus: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             Text(service.isPaused ? "ON BREAK" : "SESSION ACTIVE")
                 .font(.footnote.bold())
                 .foregroundColor(service.isPaused ? .orange : AppTheme.linkBlue)
                 .tracking(1)
-            Text(service.isPaused ? service.breakCountdownString : service.remainingTimeString)
-                .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
+            TimerRingView(size: 200, lineWidth: 12)
             Text(service.isPaused ? (service.breakRemainingSeconds > 0 ? "break remaining" : "break's over — resume when ready") : "remaining")
                 .font(.footnote)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background((service.isPaused ? Color.orange : AppTheme.accentBlue).opacity(0.16))
-        .cornerRadius(12)
     }
 
     @ViewBuilder

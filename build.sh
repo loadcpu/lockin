@@ -84,6 +84,8 @@ cat > "$INFO_PLIST" <<PLIST
     <string>Personal use only</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>Lock In reloads your browser tabs when a session starts so blocked websites take effect immediately.</string>
+    <key>LSUIElement</key>
+    <true/>
 </dict>
 </plist>
 PLIST

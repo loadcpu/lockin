@@ -2,25 +2,6 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
-/// Hosting view for an `NSMenuItem.view` whose SwiftUI content can change height.
-///
-/// A menu item view keeps whatever frame it had when the menu was built, so content that
-/// grows later (the break picker expanding under the timer ring) gets clipped by the menu.
-/// Re-syncing the frame to the fitting size and notifying the menu makes the menu re-measure.
-private final class MenuItemHostingView<Content: View>: NSHostingView<Content> {
-    override func layout() {
-        super.layout()
-
-        let fitting = fittingSize
-        guard fitting.height > 0, abs(fitting.height - frame.height) > 0.5 else { return }
-
-        setFrameSize(NSSize(width: max(frame.width, fitting.width), height: fitting.height))
-        if let menuItem = enclosingMenuItem {
-            menuItem.menu?.itemChanged(menuItem)
-        }
-    }
-}
-
 private final class HostingWindowController: NSWindowController {
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
@@ -29,9 +10,9 @@ private final class HostingWindowController: NSWindowController {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
-    private var statusItem: NSStatusItem!
-    private let statusMenu = NSMenu()
+private let reopenDistributedNotification = Notification.Name("com.loadcpu.lockin.reopen")
+
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var mainTimer: Timer?
     private var dashboardWC: HostingWindowController?
     private var statsWC: HostingWindowController?
@@ -44,21 +25,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     func applicationDidFinishLaunching(_ notification: Notification) {
         let bundleID = Bundle.main.bundleIdentifier ?? "com.loadcpu.lockin"
         if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
+            // Another instance is already running (e.g. the user double-clicked the app again
+            // in Finder/Spotlight). There's no Dock icon or menu bar item to reopen it from,
+            // so ask the running instance to show its window before this duplicate quits.
+            DistributedNotificationCenter.default().postNotificationName(
+                reopenDistributedNotification, object: bundleID, userInfo: nil, deliverImmediately: true
+            )
             NSApp.terminate(nil)
             return
         }
 
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory)
         UNUserNotificationCenter.current().delegate = self
         setupMainMenu()
         installSigTermHandler()
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(handleReopenRequest), name: reopenDistributedNotification, object: bundleID
+        )
         BlockerService.shared.loadState()
         HelperInstaller.syncLaunchAgent(shouldExist: BlockerService.shared.isBlocking)
         ActivityTracker.shared.start()
         LimitsChecker.shared.start()
         updateChecker.checkForUpdatesIfNeeded()
-        setupStatusItem()
         startMainTimer()
+        showDashboard()
+    }
+
+    @objc private func handleReopenRequest() {
+        DispatchQueue.main.async { [weak self] in self?.showDashboard() }
     }
 
     private func setupMainMenu() {
@@ -224,63 +218,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 win.setContentSize(hosting.fittingSize)
                 win.isMovableByWindowBackground = true
             }
+            if let window = dashboardWC?.window { trackWindowLifecycle(window) }
         }
+        NSApp.setActivationPolicy(.regular)
         dashboardWC?.showWindow(nil)
     }
 
-    // MARK: - Status bar
+    // MARK: - Dock / app-switcher visibility
+    //
+    // The app is a menu-bar-only (.accessory) app by default: no Dock icon, no Cmd+Tab
+    // entry, no top menu bar. Whenever a Lock In window is actually open, we switch to
+    // .regular so it behaves like a normal app (reachable via Dock/Cmd+Tab) and drop back
+    // to .accessory once every window is closed.
 
-    private func setupStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
-        statusItem.button?.image = makeMenuBarIcon()
-        statusItem.button?.imagePosition = .imageLeft
-
-        statusMenu.delegate = self
-        statusItem.menu = statusMenu
-        refreshButton()
+    private func trackWindowLifecycle(_ window: NSWindow) {
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+            DispatchQueue.main.async { self?.syncActivationPolicyToOpenWindows() }
+        }
     }
 
-    private func refreshButton() {
-        let svc = BlockerService.shared
-        guard svc.isBlocking else {
-            statusItem.button?.title = ""
-            return
-        }
-        statusItem.button?.title = svc.isPaused ? "  Break \(svc.breakCountdownString)" : "  \(svc.remainingTimeString)"
+    private func syncActivationPolicyToOpenWindows() {
+        let anyVisible = [dashboardWC, statsWC, blockSetupWC].contains { $0?.window?.isVisible == true }
+        NSApp.setActivationPolicy(anyVisible ? .regular : .accessory)
     }
 
     // MARK: - Main tick timer
 
     private func startMainTimer() {
-        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0, repeats: true) { _ in
             BlockerService.shared.tick()
             ActivityStore.shared.tick()
-            self?.refreshButton()
         }
         RunLoop.main.add(timer, forMode: .common)
         mainTimer = timer
     }
 
-    // MARK: - NSMenuDelegate (rebuild on open)
-
-    func menuWillOpen(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let svc = BlockerService.shared
-
-        if svc.isBlocking {
-            menu.addItem(timerMenuItem())
-            menu.addItem(.separator())
-        } else {
-            menu.addItem(item("Start Blocking", action: #selector(startBlocking), key: "s"))
-        }
-        menu.addItem(.separator())
-        menu.addItem(item("Quit Lock In", action: #selector(handleQuit), key: "q"))
-    }
-
     // MARK: - Actions
-
-    @objc private func openDashboard() { showDashboard() }
 
     @objc private func openStats() {
         // Closing an NSWindow only orders it out, so discard its hosting view before
@@ -299,7 +272,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 hosting.autoresizingMask = [.width, .height]
                 win.minSize = NSSize(width: 560, height: 420)
             }
+            if let window = statsWC?.window { trackWindowLifecycle(window) }
         }
+        NSApp.setActivationPolicy(.regular)
         statsWC?.showWindow(nil)
         NotificationCenter.default.post(name: .statsViewShouldReload, object: nil)
     }
@@ -312,7 +287,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                     BlockerService.shared.startSession(minutes: minutes, apps: apps, websites: websites)
                     self?.blockSetupWC?.close()
                     self?.blockSetupWC = nil
-                    self?.refreshButton()
                 },
                 onCancel: { [weak self] in
                     self?.blockSetupWC?.close()
@@ -327,6 +301,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             win.titlebarAppearsTransparent = true
             win.isMovableByWindowBackground = true
         }
+        if let window = blockSetupWC?.window { trackWindowLifecycle(window) }
+        NSApp.setActivationPolicy(.regular)
         blockSetupWC?.showWindow(nil)
     }
 
@@ -351,61 +327,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         NSApp.terminate(nil)
     }
 
-    // MARK: - Icon
-
-    private func makeMenuBarIcon() -> NSImage {
-        let size: CGFloat = 18
-        let img = NSImage(size: NSSize(width: size, height: size))
-        img.lockFocus()
-        defer { img.unlockFocus() }
-
-        let rect = NSRect(origin: .zero, size: NSSize(width: size, height: size))
-        NSBezierPath(roundedRect: rect, xRadius: size * 0.22, yRadius: size * 0.22).setClip()
-        NSGradient(colors: [
-            NSColor(calibratedRed: 0.10, green: 0.22, blue: 0.82, alpha: 1),
-            NSColor(calibratedRed: 0.04, green: 0.10, blue: 0.48, alpha: 1),
-        ])!.draw(in: rect, angle: 255)
-
-        let cfg = NSImage.SymbolConfiguration(pointSize: size * 0.60, weight: .medium)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
-        if let sym = NSImage(systemSymbolName: "lock.shield.fill", accessibilityDescription: nil)?
-            .withSymbolConfiguration(cfg) {
-            sym.draw(
-                at: NSPoint(x: (size - sym.size.width) / 2, y: (size - sym.size.height) / 2),
-                from: .zero, operation: .sourceOver, fraction: 1
-            )
-        }
-        return img
-    }
-
     // MARK: - Helpers
 
     private func item(_ title: String, action: Selector, key: String) -> NSMenuItem {
         let i = NSMenuItem(title: title, action: action, keyEquivalent: key)
         i.target = self
         return i
-    }
-
-    private func add(disabled title: String, to menu: NSMenu) {
-        let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        i.isEnabled = false
-        menu.addItem(i)
-    }
-
-    private func timerMenuItem() -> NSMenuItem {
-        let item = NSMenuItem()
-        // Enabled so the buttons inside the custom view (pause/resume) receive clicks.
-        item.isEnabled = true
-
-        // The view changes height when the break picker expands, so it has to be able to
-        // grow after the menu item is created (see MenuItemHostingView).
-        let hosting = MenuItemHostingView(rootView: BlockingTimerMenuView())
-        hosting.sizingOptions = [.intrinsicContentSize]
-        hosting.layoutSubtreeIfNeeded()
-        hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
-        item.view = hosting
-
-        return item
     }
 
     private func makeHostingWindow<V: View>(
