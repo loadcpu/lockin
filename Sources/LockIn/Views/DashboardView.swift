@@ -99,6 +99,9 @@ struct DashboardView: View {
 
     private var readyStatus: some View {
         VStack(spacing: 14) {
+            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
+                .resizable()
+                .frame(width: 72, height: 72)
             Label(
                 service.hasLimitRestrictions ? "Category limits active" : "Ready to focus",
                 systemImage: service.hasLimitRestrictions ? "lock.fill" : "checkmark.circle.fill"
