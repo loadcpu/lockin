@@ -12,13 +12,11 @@ struct DashboardView: View {
     @State private var breakMinutes: Double = 10
     var body: some View {
         VStack(spacing: 0) {
-            heroSection
-            Spacer().frame(height: 20)
             statusSection
-            Spacer().frame(height: 16)
+                .padding(.top, 16)
+            Spacer().frame(height: 8)
             Divider().padding(.horizontal, 20)
             quickStatsSection
-            Spacer().frame(height: 20)
         }
         .frame(width: 340)
         .background(
@@ -36,17 +34,6 @@ struct DashboardView: View {
 
     // MARK: - Sections
 
-    private var heroSection: some View {
-        VStack(spacing: 10) {
-            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
-                .resizable()
-                .frame(width: 72, height: 72)
-                .padding(.top, 16)
-            Text("Lock In")
-                .font(.title2.bold())
-        }
-    }
-
     private var statusSection: some View {
         Group {
             if service.isBlocking {
@@ -60,18 +47,15 @@ struct DashboardView: View {
     }
 
     private var blockingStatus: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             Text(service.isPaused ? "ON BREAK" : "SESSION ACTIVE")
                 .font(.footnote.bold())
                 .foregroundColor(service.isPaused ? .orange : AppTheme.linkBlue)
                 .tracking(1)
-            TimerRingView(size: 200, lineWidth: 12)
-            Text(service.isPaused ? (service.breakRemainingSeconds > 0 ? "break remaining" : "break's over — resume when ready") : "remaining")
-                .font(.footnote)
-                .foregroundColor(.secondary)
+            TimerRingView(size: 160, lineWidth: 10)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
+        .padding(.vertical, 8)
     }
 
     @ViewBuilder
@@ -82,7 +66,7 @@ struct DashboardView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(AppTheme.accentBlue)
-            .padding(.top, 10)
+            .padding(.top, 4)
         } else if showingBreakPicker {
             VStack(spacing: 8) {
                 Text("\(Int(breakMinutes)) min break")
@@ -169,7 +153,7 @@ struct DashboardView: View {
 
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.vertical, 10)
     }
 }
 
