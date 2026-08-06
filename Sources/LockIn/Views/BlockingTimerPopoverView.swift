@@ -7,52 +7,21 @@ struct BlockingTimerMenuView: View {
 
     private let ringSize: CGFloat = 164
     private let ringLineWidth: CGFloat = 10
-    private let controlsHeight: CGFloat = 112
-    private let pausedControlsHeight: CGFloat = 38
 
     var body: some View {
-        VStack(spacing: 6) {
-            header
+        VStack(spacing: 10) {
             if service.isPaused {
                 breakRing
             } else {
                 timerRing
             }
             bottomControls
-                .padding(.top, 16)
-                .frame(height: service.isPaused ? pausedControlsHeight : controlsHeight, alignment: .top)
         }
         .padding(.horizontal, 10)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .frame(width: 240)
+        .padding(.vertical, 8)
+        .frame(width: 220)
         .background(AppTheme.background.opacity(0.001))
         .onAppear { breakMinutes = min(10, max(0, Double(service.breaksAvailable > 0 ? 10 : 0))) }
-    }
-
-    private var header: some View {
-        VStack(spacing: 3) {
-            Text(service.isPaused ? "On Break" : "Timer")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.92))
-
-            // Reserve the same height whether or not the second line has content, so the
-            // ring below never shifts position when switching between timer/break states.
-            Group {
-                if !service.isPaused, let endDate = service.sessionEndDate {
-                    Label {
-                        Text(endDate, style: .time)
-                    } icon: {
-                        Image(systemName: "bell.fill")
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                } else {
-                    Color.clear
-                }
-            }
-            .frame(height: 14)
-        }
     }
 
     private var timerRing: some View {
@@ -79,9 +48,19 @@ struct BlockingTimerMenuView: View {
                     .shadow(color: AppTheme.accentBlue.opacity(0.30), radius: 8)
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: 2) {
+                if let endDate = service.sessionEndDate {
+                    Label {
+                        Text(endDate, style: .time)
+                    } icon: {
+                        Image(systemName: "bell.fill")
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                }
+
                 Text(service.countdownClockString)
-                    .font(.system(size: 42, weight: .thin, design: .rounded).monospacedDigit())
+                    .font(.system(size: 42, weight: .regular, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
                     .contentTransition(.numericText())
                     .lineLimit(1)
@@ -118,7 +97,7 @@ struct BlockingTimerMenuView: View {
             VStack(spacing: 6) {
                 if service.breakRemainingSeconds > 0 {
                     Text(service.breakCountdownString)
-                        .font(.system(size: 42, weight: .thin, design: .rounded).monospacedDigit())
+                        .font(.system(size: 42, weight: .regular, design: .rounded).monospacedDigit())
                         .foregroundStyle(.white)
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
