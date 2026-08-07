@@ -16,7 +16,16 @@ APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ICON_PATH="$ROOT_DIR/.build/AppIcon.icns"
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+if pkill -x "$APP_NAME" >/dev/null 2>&1; then
+  # Wait for the old process to fully exit before relaunching. Without this, a fast
+  # incremental rebuild can finish before the SIGTERM is processed, so the new
+  # instance's duplicate-instance guard sees the still-dying old one, quits itself,
+  # and hands focus back to stale code with no visible error.
+  for _ in $(seq 1 50); do
+    pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
+    sleep 0.1
+  done
+fi
 
 swift build
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
@@ -27,6 +36,8 @@ chmod +x "$APP_BINARY"
 
 (cd "$ROOT_DIR" && swift generate_icon.swift) >/dev/null
 cp "$ICON_PATH" "$APP_RESOURCES/AppIcon.icns"
+
+ENTITLEMENTS_PATH="$ROOT_DIR/LockIn.entitlements"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -50,6 +61,12 @@ cat >"$INFO_PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+
+# Explicitly ad-hoc sign with a stable identifier. Without this, macOS applies an
+# implicit signature at launch with a random hash-based identity that changes on
+# every rebuild, which breaks notification permission persistence (silent
+# requestAuthorization failures — no prompt, no error, no notification).
+codesign --force --deep --sign - --identifier "$BUNDLE_ID" --entitlements "$ENTITLEMENTS_PATH" "$APP_BUNDLE"
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
