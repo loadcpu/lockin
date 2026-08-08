@@ -13,8 +13,8 @@ struct DashboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             statusSection
-                .padding(.top, 16)
-            Spacer().frame(height: 8)
+                .padding(.top, 4)
+            Spacer().frame(height: 20)
             Divider().padding(.horizontal, 20)
             quickStatsSection
         }
@@ -47,7 +47,7 @@ struct DashboardView: View {
     }
 
     private var blockingStatus: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 16) {
             Text(service.isPaused ? "ON BREAK" : "SESSION ACTIVE")
                 .font(.footnote.bold())
                 .foregroundColor(service.isPaused ? .orange : AppTheme.linkBlue)
@@ -55,7 +55,6 @@ struct DashboardView: View {
             TimerRingView(size: 160, lineWidth: 10)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
     }
 
     @ViewBuilder
