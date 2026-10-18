@@ -88,6 +88,9 @@ final class BlockerService: ObservableObject {
         session = s
         isBlocking = true
         remainingSeconds = s.remainingSeconds
+        Analytics.capture("block_started", [
+            "minutes": minutes, "apps": s.blockedApps.count, "websites": s.blockedWebsites.count,
+        ])
         refreshEffectiveBlocks(reloadBrowserTabs: true)
         // Schedule the end notification now, while the app is stable.
         // The system daemon holds it and fires it even after this process exits,
@@ -196,6 +199,7 @@ final class BlockerService: ObservableObject {
 
     private func endSession() {
         if let s = session {
+            Analytics.capture("block_completed", ["minutes": Int(s.endTime.timeIntervalSince(s.startTime) / 60)])
             FocusStore.shared.record(duration: s.endTime.timeIntervalSince(s.startTime),
                                      start: s.startTime, end: s.endTime)
         }
