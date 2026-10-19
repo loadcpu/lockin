@@ -57,7 +57,9 @@ enum Analytics {
     }
 
     static func capture(_ event: String, _ properties: [String: Any] = [:]) {
-        guard isAvailable, UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true,
+        // bool(forKey:) also reads "NO" and 0, e.g. from `defaults write … shareUsageCounts NO`.
+        let defaults = UserDefaults.standard
+        guard isAvailable, defaults.object(forKey: enabledKey) == nil || defaults.bool(forKey: enabledKey),
               let url = URL(string: "\(host)/i/v0/e/")
         else { return }
         let info = Bundle.main.infoDictionary ?? [:]
