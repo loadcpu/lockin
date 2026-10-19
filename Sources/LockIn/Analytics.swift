@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import os
 
@@ -56,6 +57,17 @@ enum Analytics {
         }
         defaults.set(version, forKey: lastVersionKey)
         capture("app_launched")
+        startHeartbeat()
+    }
+
+    /// `app_running` every 30 minutes while the app runs, with whether it was the frontmost app
+    /// at that moment, so the stats can tell how many Macs have it running, or in use, right now.
+    /// It goes to our own collector only, never to PostHog.
+    private static func startHeartbeat() {
+        Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { _ in
+            let frontmost = MainActor.assumeIsolated { NSApplication.shared.isActive }
+            capture("app_running", ["frontmost": frontmost])
+        }
     }
 
     static func capture(_ event: String, _ properties: [String: Any] = [:]) {
