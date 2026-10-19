@@ -1,7 +1,9 @@
 import Foundation
 import os
 
-/// Anonymous usage events, sent to PostHog's capture API (no SDK). Each event carries a random
+/// Anonymous usage events, sent to our own collector at a.loadcpu.com (the analytics repo), which
+/// stores them and mirrors them to PostHog while that's on. The body is PostHog's capture format,
+/// and `uuid` lets a retried event count once. Each event carries a random
 /// install ID made on first launch and tied to nothing else, the app and macOS versions, and
 /// the event's own properties. Nothing the user writes, records or browses is ever sent.
 ///
@@ -13,11 +15,11 @@ enum Analytics {
     /// `defaults write -g loadcpuNoAnalytics -bool true` keeps a whole Mac out of the stats, for
     /// every loadcpu app and build at once (the developer's own machines).
     private static let machineOptOutKey = "loadcpuNoAnalytics"
-    /// The same key and host in every loadcpu app, so one PostHog project sees all of them;
-    /// the `app` property tells them apart.
+    /// The same key and host in every loadcpu app, so one collector (and one PostHog project)
+    /// sees all of them; the `app` property tells them apart.
     private static let apiKey = "phc_puj7kPBWnDaxRUv3dvcySXpPbqA93QWjoXBZU5wCRmi8"
     private static let host = ProcessInfo.processInfo.environment["LOCKIN_ANALYTICS_HOST"]
-        ?? "https://eu.i.posthog.com"
+        ?? "https://a.loadcpu.com"
     private static let app = "lockin"
     private static let installIDKey = "analyticsInstallID"
     private static let lastVersionKey = "analyticsLastVersion"
@@ -75,6 +77,7 @@ enum Analytics {
         props.merge(properties) { _, new in new }
         let body: [String: Any] = [
             "api_key": apiKey,
+            "uuid": UUID().uuidString.lowercased(),
             "event": event,
             "distinct_id": installID,
             "timestamp": ISO8601DateFormatter().string(from: Date()),
