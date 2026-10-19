@@ -7,6 +7,7 @@ struct ConfigView: View {
     @State private var appSearch = ""
     @State private var newWebsite = ""
     @State private var websiteError = ""
+    @AppStorage(Analytics.enabledKey) private var sharesUsageCounts = true
     private let configureBackground = AppTheme.background
 
     var body: some View {
@@ -19,6 +20,10 @@ struct ConfigView: View {
                 case 1: websitesTab
                 default: limitsTab
                 }
+            }
+            if Analytics.isAvailable {
+                Divider()
+                usageStatsRow
             }
         }
         .frame(width: 560, height: 540)
@@ -39,6 +44,23 @@ struct ConfigView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    private var usageStatsRow: some View {
+        Toggle(isOn: $sharesUsageCounts) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Help improve Lock In")
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                Text("Sends anonymous stats, like how often Lock In is opened. The apps and sites you block never leave your Mac.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Apps Tab

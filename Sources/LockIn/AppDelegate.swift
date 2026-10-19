@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             NSApp.terminate(nil)
             return
         }
-        Analytics.capture("app_launched")
+        Analytics.appDidLaunch()
 
         NSApp.setActivationPolicy(.accessory)
         UNUserNotificationCenter.current().delegate = self
