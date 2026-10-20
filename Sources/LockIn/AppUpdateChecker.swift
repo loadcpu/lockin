@@ -1,203 +1,60 @@
 import AppKit
-import Combine
 import Foundation
+import Sparkle
 
-final class AppUpdateChecker: ObservableObject {
+/// Automatic updates through Sparkle. The feed URL (SUFeedURL) and EdDSA public key
+/// (SUPublicEDKey) live in Info.plist; release.sh publishes a signed appcast.xml with
+/// every GitHub release.
+final class AppUpdateChecker: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     static let shared = AppUpdateChecker()
 
-    @Published private(set) var latestVersion: String?
-    @Published private(set) var downloadURL: URL?
-    @Published private(set) var isChecking = false
-    private var lastPresentedUpdateVersion: String?
+    private var controller: SPUStandardUpdaterController!
+    private var postponedRelaunchTimer: Timer?
 
-    private let session: URLSession
-    private let latestReleaseAPI = URL(string: "https://api.github.com/repos/loadcpu/lockin/releases/latest")!
-    private let latestReleasePage = URL(string: "https://github.com/loadcpu/lockin/releases/latest")!
-    private let lastCheckKey = "appUpdateLastCheck"
-    private let checkInterval: TimeInterval = 60 * 60 * 12
-
-    private init(session: URLSession = .shared) {
-        self.session = session
+    private override init() {
+        super.init()
+        controller = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: self,
+            userDriverDelegate: self
+        )
     }
 
-    var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    /// Starts Sparkle's scheduled background checks. Dev builds without a feed URL
+    /// (script/build_and_run.sh) skip it so Sparkle doesn't complain.
+    func start() {
+        guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return }
+        controller.startUpdater()
     }
 
-    var isUpdateAvailable: Bool {
-        guard let latestVersion else { return false }
-        return Self.compareVersions(latestVersion, currentVersion) == .orderedDescending
-    }
-
-    var updateButtonTitle: String {
-        isUpdateAvailable ? "Download Update" : "Check for Updates…"
-    }
-
-    func checkForUpdatesIfNeeded() {
-        let lastCheck = UserDefaults.standard.object(forKey: lastCheckKey) as? Date
-        if let lastCheck, Date().timeIntervalSince(lastCheck) < checkInterval {
-            return
-        }
-
-        checkForUpdates(userInitiated: false)
-    }
-
-    func checkForUpdates(userInitiated: Bool) {
-        guard !isChecking else { return }
-
-        isChecking = true
-        let request = URLRequest(url: latestReleaseAPI, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-
-        session.dataTask(with: request) { [weak self] data, _, error in
-            guard let self else { return }
-
-            if let error {
-                DispatchQueue.main.async {
-                    self.isChecking = false
-                    if userInitiated {
-                        self.presentAlert(
-                            title: "Update Check Failed",
-                            message: "Lock In could not reach GitHub right now.\n\n\(error.localizedDescription)"
-                        )
-                    }
-                }
-                return
-            }
-
-            guard let data else {
-                DispatchQueue.main.async {
-                    self.isChecking = false
-                    if userInitiated {
-                        self.presentAlert(
-                            title: "Update Check Failed",
-                            message: "GitHub returned an empty response."
-                        )
-                    }
-                }
-                return
-            }
-
-            do {
-                let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-                let version = Self.normalizeVersion(release.tagName)
-                let downloadURL = release.assets.first(where: Self.isPreferredDMGAsset)?.browserDownloadURL
-                    ?? release.assets.first(where: Self.isPreferredZipAsset)?.browserDownloadURL
-
-                DispatchQueue.main.async {
-                    self.latestVersion = version
-                    self.downloadURL = downloadURL ?? release.htmlURL
-                    self.isChecking = false
-                    UserDefaults.standard.set(Date(), forKey: self.lastCheckKey)
-
-                    if self.isUpdateAvailable {
-                        if userInitiated || self.lastPresentedUpdateVersion != version {
-                            self.presentUpdateAvailableAlert(version: version)
-                            self.lastPresentedUpdateVersion = version
-                        }
-                    } else if userInitiated {
-                        self.presentAlert(
-                            title: "You’re Up to Date",
-                            message: "Lock In \(self.currentVersion) is the latest available version."
-                        )
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.isChecking = false
-                    if userInitiated {
-                        self.presentAlert(
-                            title: "Update Check Failed",
-                            message: "Lock In could not read the latest release information from GitHub."
-                        )
-                    }
-                }
-            }
-        }.resume()
-    }
-
-    func openDownloadPage() {
-        NSWorkspace.shared.open(downloadURL ?? latestReleasePage)
-    }
-
-    private func presentUpdateAvailableAlert(version: String) {
-        let alert = NSAlert()
-        alert.messageText = "Update Available"
-        alert.informativeText = "Lock In \(version) is available. You’re currently on \(currentVersion)."
-        alert.addButton(withTitle: "Download Update")
-        alert.addButton(withTitle: "Later")
-        prepareAlertForForeground(alert)
-        if alert.runModal() == .alertFirstButtonReturn {
-            openDownloadPage()
-        }
-    }
-
-    private func presentAlert(title: String, message: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.addButton(withTitle: "OK")
-        prepareAlertForForeground(alert)
-        alert.runModal()
-    }
-
-    private func prepareAlertForForeground(_ alert: NSAlert) {
+    @objc func checkForUpdates() {
         NSApp.activate(ignoringOtherApps: true)
-        let window = alert.window
-        window.level = .modalPanel
-        window.collectionBehavior.insert(.moveToActiveSpace)
-        window.center()
-        window.orderFrontRegardless()
-        window.makeKey()
+        controller.checkForUpdates(nil)
     }
 
-    private static func normalizeVersion(_ tag: String) -> String {
-        tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-    }
+    // MARK: - SPUUpdaterDelegate
 
-    private static func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
-        let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
-        let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
-        let count = max(left.count, right.count)
-
-        for index in 0..<count {
-            let l = index < left.count ? left[index] : 0
-            let r = index < right.count ? right[index] : 0
-            if l < r { return .orderedAscending }
-            if l > r { return .orderedDescending }
+    // A relaunch can't happen mid-session (applicationShouldTerminate refuses), so hold
+    // the install until the session ends instead of leaving the update stuck halfway.
+    func updater(_ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem, untilInvokingBlock installHandler: @escaping () -> Void) -> Bool {
+        guard BlockerService.shared.isBlocking else { return false }
+        postponedRelaunchTimer?.invalidate()
+        postponedRelaunchTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] timer in
+            guard !BlockerService.shared.isBlocking else { return }
+            timer.invalidate()
+            self?.postponedRelaunchTimer = nil
+            installHandler()
         }
-
-        return .orderedSame
+        return true
     }
 
-    private static func isPreferredDMGAsset(_ asset: GitHubAsset) -> Bool {
-        asset.name == "LockIn.dmg" ||
-        (asset.name.hasPrefix("LockIn-macOS-") && asset.name.hasSuffix(".dmg"))
-    }
+    // MARK: - SPUStandardUserDriverDelegate
 
-    private static func isPreferredZipAsset(_ asset: GitHubAsset) -> Bool {
-        asset.name == "LockIn.zip" ||
-        (asset.name.hasPrefix("LockIn-macOS-") && asset.name.hasSuffix(".zip"))
-    }
-}
+    // Lock In runs without a Dock icon, so scheduled update alerts would otherwise open
+    // behind other apps.
+    var supportsGentleScheduledUpdateReminders: Bool { true }
 
-private struct GitHubRelease: Decodable {
-    let tagName: String
-    let htmlURL: URL
-    let assets: [GitHubAsset]
-
-    enum CodingKeys: String, CodingKey {
-        case tagName = "tag_name"
-        case htmlURL = "html_url"
-        case assets
-    }
-}
-
-private struct GitHubAsset: Decodable {
-    let name: String
-    let browserDownloadURL: URL
-
-    enum CodingKeys: String, CodingKey {
-        case name
-        case browserDownloadURL = "browser_download_url"
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

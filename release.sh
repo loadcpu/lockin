@@ -6,6 +6,8 @@ REPO="${LOCKIN_REPO:-loadcpu/lockin}"
 DIST_DIR=".build/dist"
 STABLE_ZIP="$DIST_DIR/LockIn.zip"
 STABLE_DMG="$DIST_DIR/LockIn.dmg"
+APPCAST="$DIST_DIR/appcast.xml"
+SPARKLE_BIN=".build/artifacts/sparkle/Sparkle/bin"
 RW_DMG="$DIST_DIR/LockIn-rw.dmg"
 BKG_PNG=".build/dmg-background.png"
 DMG_MOUNT_DIR=".build/dmg-mount"
@@ -24,6 +26,7 @@ NOTARY_PROFILE="${LOCKIN_NOTARY_PROFILE:-}"
 INCLUDE_ZIP="${LOCKIN_INCLUDE_ZIP:-0}"
 INCLUDE_VERSIONED_ALIASES="${LOCKIN_INCLUDE_VERSIONED_ALIASES:-0}"
 PUBLISH_RELEASE="${LOCKIN_PUBLISH_RELEASE:-1}"
+RELEASE_NOTES="${LOCKIN_RELEASE_NOTES:-Download \`LockIn.dmg\` and drag \`Lock In.app\` into Applications.}"
 WORKDIR="$(pwd)"
 MODULE_CACHE_ROOT="$WORKDIR/.build/module-cache"
 CLANG_CACHE="$MODULE_CACHE_ROOT/clang"
@@ -157,6 +160,37 @@ APPLESCRIPT
     codesign --force --sign "$SIGNING_IDENTITY" "$output"
 }
 
+xml_escape() {
+    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+}
+
+# One-item Sparkle feed for this release. It's uploaded as a release asset, so
+# releases/latest/download/appcast.xml (the app's SUFeedURL) always serves the newest.
+write_appcast() {
+    local signature
+    local notes
+    signature="$("$SPARKLE_BIN/sign_update" "$STABLE_DMG")"
+    notes="$(printf '%s\n' "$RELEASE_NOTES" | xml_escape)"
+    cat > "$APPCAST" <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>${APP}</title>
+        <item>
+            <title>${VERSION}</title>
+            <pubDate>$(LC_ALL=C date -u "+%a, %d %b %Y %H:%M:%S +0000")</pubDate>
+            <sparkle:version>${BUILD_NUMBER}</sparkle:version>
+            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="plain-text"><![CDATA[${notes}]]></description>
+            <enclosure url="https://github.com/${REPO}/releases/download/${RELEASE_TAG}/LockIn.dmg" type="application/octet-stream" ${signature} />
+        </item>
+    </channel>
+</rss>
+XML
+    xmllint --noout "$APPCAST"
+}
+
 print_size() {
     du -sh "$1" | cut -f1
 }
@@ -204,7 +238,11 @@ if [ -n "$NOTARY_PROFILE" ]; then
     ./verify_release.sh --require-staple "$APP_PATH" "$STABLE_DMG"
 fi
 
-RELEASE_ASSETS=("$STABLE_DMG")
+echo "${BOLD}Writing Sparkle appcast…${RESET}"
+write_appcast
+echo "  $(basename "$APPCAST") ready"
+
+RELEASE_ASSETS=("$STABLE_DMG" "$APPCAST")
 if [ "$INCLUDE_ZIP" = "1" ]; then
     RELEASE_ASSETS+=("$STABLE_ZIP")
 fi
@@ -243,7 +281,7 @@ else
     gh release create "$RELEASE_TAG" \
         "${RELEASE_ASSETS[@]}" \
         --title "$RELEASE_TAG" \
-        --notes "Download \`LockIn.dmg\` and drag \`Lock In.app\` into Applications."
+        --notes "$RELEASE_NOTES"
 fi
 
 echo ""

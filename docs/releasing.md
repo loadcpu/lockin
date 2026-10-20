@@ -28,6 +28,25 @@ Then export the profile when publishing:
 export LOCKIN_NOTARY_PROFILE="lockin-notary"
 ```
 
+## Automatic Updates (Sparkle)
+
+The app updates itself with [Sparkle](https://sparkle-project.org). `build.sh` bundles
+`Sparkle.framework` and writes `SUFeedURL` and `SUPublicEDKey` into Info.plist. The feed is
+`https://github.com/loadcpu/lockin/releases/latest/download/appcast.xml`, so every
+release must carry an `appcast.xml` asset; `release.sh` signs the DMG and writes it.
+
+The EdDSA private key lives in the login keychain (Sparkle's `generate_keys` stores it there).
+Print the public key with:
+
+```sh
+.build/artifacts/sparkle/Sparkle/bin/generate_keys -p
+```
+
+Back it up with `generate_keys -x <file>` and keep it safe: without it, existing installs
+can't verify future updates.
+
+Release notes shown in the update dialog and on GitHub come from `LOCKIN_RELEASE_NOTES`.
+
 ## Local Verification
 
 Build the app:

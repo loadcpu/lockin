@@ -30,8 +30,10 @@ fi
 swift build
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
 
-mkdir -p "$APP_MACOS" "$APP_RESOURCES"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_CONTENTS/Frameworks"
 cp "$BUILD_BINARY" "$APP_BINARY"
+rm -rf "$APP_CONTENTS/Frameworks/Sparkle.framework"
+ditto "$(swift build --show-bin-path)/Sparkle.framework" "$APP_CONTENTS/Frameworks/Sparkle.framework"
 chmod +x "$APP_BINARY"
 
 (cd "$ROOT_DIR" && swift generate_icon.swift) >/dev/null

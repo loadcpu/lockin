@@ -15,6 +15,8 @@ WORKDIR="$(pwd)"
 MODULE_CACHE_ROOT="$WORKDIR/.build/module-cache"
 CLANG_CACHE="$MODULE_CACHE_ROOT/clang"
 SWIFTPM_CACHE="$MODULE_CACHE_ROOT/swiftpm"
+SPARKLE_FEED_URL="${LOCKIN_SPARKLE_FEED_URL:-https://github.com/loadcpu/lockin/releases/latest/download/appcast.xml}"
+SPARKLE_PUBLIC_KEY="${LOCKIN_SPARKLE_PUBLIC_KEY:-bv0+YriGpuRny13+5CFb90Zj4telIaNoURByucOrhRM=}"
 
 mkdir -p "$CLANG_CACHE" "$SWIFTPM_CACHE"
 
@@ -47,9 +49,11 @@ echo "Packaging…"
 rm -rf "$STAGING"
 mkdir -p "$STAGING/Contents/MacOS"
 mkdir -p "$STAGING/Contents/Resources"
+mkdir -p "$STAGING/Contents/Frameworks"
 
 cp ".build/release/$EXECUTABLE_NAME" "$STAGING/Contents/MacOS/$EXECUTABLE_NAME"
 cp "$ICON_PATH" "$STAGING/Contents/Resources/AppIcon.icns"
+ditto "$(swift build -c release --show-bin-path)/Sparkle.framework" "$STAGING/Contents/Frameworks/Sparkle.framework"
 
 echo "Stripping packaged binary…"
 strip -S -x "$STAGING/Contents/MacOS/$EXECUTABLE_NAME"
@@ -86,9 +90,34 @@ cat > "$INFO_PLIST" <<PLIST
     <string>Lock In reloads your browser tabs when a session starts so blocked websites take effect immediately.</string>
     <key>LSUIElement</key>
     <true/>
+    <key>SUFeedURL</key>
+    <string>${SPARKLE_FEED_URL}</string>
+    <key>SUPublicEDKey</key>
+    <string>${SPARKLE_PUBLIC_KEY}</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
 </dict>
 </plist>
 PLIST
+
+# Sparkle's helpers are signed inside-out with their own entitlements (Downloader.xpc
+# keeps its network-client entitlement), so the app itself is signed without --deep.
+sign_developer_id() {
+    local sparkle="$STAGING/Contents/Frameworks/Sparkle.framework/Versions/B"
+    codesign --force --options runtime --sign "$SIGNING_IDENTITY" "$sparkle/XPCServices/Installer.xpc"
+    codesign --force --options runtime --preserve-metadata=entitlements --sign "$SIGNING_IDENTITY" "$sparkle/XPCServices/Downloader.xpc"
+    codesign --force --options runtime --sign "$SIGNING_IDENTITY" "$sparkle/Autoupdate"
+    codesign --force --options runtime --sign "$SIGNING_IDENTITY" "$sparkle/Updater.app"
+    codesign --force --options runtime --sign "$SIGNING_IDENTITY" "$STAGING/Contents/Frameworks/Sparkle.framework"
+    codesign \
+        --force \
+        --options runtime \
+        --entitlements "$ENTITLEMENTS_PATH" \
+        --sign "$SIGNING_IDENTITY" \
+        "$STAGING"
+}
 
 sign_app() {
     case "$SIGNING_MODE" in
@@ -101,13 +130,7 @@ sign_app() {
             ;;
         developer-id)
             echo "Signing with Developer ID identity…"
-            codesign \
-                --force \
-                --deep \
-                --options runtime \
-                --entitlements "$ENTITLEMENTS_PATH" \
-                --sign "$SIGNING_IDENTITY" \
-                "$STAGING"
+            sign_developer_id
             ;;
         auto)
             if [ "$SIGNING_IDENTITY" = "-" ]; then
@@ -115,13 +138,7 @@ sign_app() {
                 codesign --force --deep --sign - "$STAGING"
             else
                 echo "Signing with configured identity…"
-                codesign \
-                    --force \
-                    --deep \
-                    --options runtime \
-                    --entitlements "$ENTITLEMENTS_PATH" \
-                    --sign "$SIGNING_IDENTITY" \
-                    "$STAGING"
+                sign_developer_id
             fi
             ;;
         *)

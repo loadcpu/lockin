@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         HelperInstaller.syncLaunchAgent(shouldExist: BlockerService.shared.isBlocking)
         ActivityTracker.shared.start()
         LimitsChecker.shared.start()
-        updateChecker.checkForUpdatesIfNeeded()
+        updateChecker.start()
         startMainTimer()
         showDashboard()
     }
@@ -75,7 +75,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         aboutItem.target = NSApp
         appMenu.addItem(aboutItem)
         appMenu.addItem(item("Check for Updates…", action: #selector(checkForUpdates), key: ""))
-        appMenu.addItem(item("Download Update", action: #selector(downloadUpdate), key: ""))
         appMenu.addItem(.separator())
 
         let hideItem = NSMenuItem(title: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
@@ -311,11 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc private func checkForUpdates() {
-        updateChecker.checkForUpdates(userInitiated: true)
-    }
-
-    @objc private func downloadUpdate() {
-        updateChecker.openDownloadPage()
+        updateChecker.checkForUpdates()
     }
 
     @objc private func handleQuit() {
